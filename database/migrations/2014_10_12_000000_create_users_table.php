@@ -13,10 +13,13 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
+            $table->string('phone', 15)->unique();
             $table->string('password');
+            $table->enum('user_type', ['customer', 'restaurant', 'driver', 'admin'])->default('customer');
+            $table->boolean('is_active')->default(false);
+            $table->string('profile_image', 255)->nullable();
+            $table->text('fcm_token')->nullable();
+            $table->softDeletes(); // deleted_at
             $table->rememberToken();
             $table->timestamps();
         });
