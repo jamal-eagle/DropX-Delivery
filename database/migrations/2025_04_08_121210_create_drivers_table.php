@@ -17,8 +17,6 @@ return new class extends Migration
             $table->string('vehicle_type');
             $table->string('vehicle_number');
             $table->boolean('is_active')->default(true);
-            $table->decimal('latitude', 10, 8);
-            $table->decimal('longitude', 11, 8);
             $table->timestamps();
         });
     }

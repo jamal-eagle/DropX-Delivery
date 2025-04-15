@@ -10,22 +10,34 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use SebastianBergmann\CodeCoverage\Driver\Driver;
 
+
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable, SoftDeletes,HasApiTokens;
 
     protected $fillable = [
+        'fullname',
         'phone',
         'password',
-        'user_type',
+        'location_text',
+        'latitude',
+        'longitude',
         'is_active',
-        'profile_image',
         'fcm_token',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'is_active',
+        'user_type',
+        'latitude',
+        'longitude',
+        'fcm_token',
+        'deleted_at',
+        'created_at',
+        'updated_at'
+
     ];
 
     protected $casts = [
@@ -38,10 +50,7 @@ class User extends Authenticatable
 
 
 
-    public function customer()
-    {
-        return $this->hasOne(customer::class);
-    }
+
 
     public function restaurant()
     {
@@ -63,6 +72,10 @@ class User extends Authenticatable
         return $this->belongsToMany(PromoCode::class, 'user_promo_codes')
             ->withPivot('is_used', 'used_at')
             ->withTimestamps();
+    }
+    public function areas()
+    {
+        return $this->belongsToMany(Area::class);
     }
 
     // public function orders()

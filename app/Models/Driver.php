@@ -14,11 +14,9 @@ class Driver extends Model
         'vehicle_type',
         'vehicle_number',
         'is_active',
-        'latitude',
-        'longitude',
     ];
 
-    
+
 
 
     public function user()

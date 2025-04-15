@@ -5,17 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Admin extends Model
+class Area extends Model
 {
     use HasFactory;
-
     protected $fillable = [
-        'user_id',
+        'city',
+        'neighborhood',
     ];
 
-
-    public function user()
+    public function users()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsToMany(User::class);
     }
 }
