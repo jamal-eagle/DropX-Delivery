@@ -12,7 +12,7 @@ class CheckCustomer
 
     public function handle(Request $request, Closure $next): Response
     {
-        if(Auth::user()->role === 'customer')
+        if(Auth::user()->user_type === 'customer')
         return $next($request);
         return response()->json(['message'=> 'Unauthanteceted'], 403);
     }

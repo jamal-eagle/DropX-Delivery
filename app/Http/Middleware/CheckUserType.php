@@ -11,7 +11,7 @@ class CheckUserType
 {
 
     public function handle(Request $request, Closure $next): Response
-    {   if(Auth::user()->role === 'admin')
+    {   if(Auth::user()->user_type == 'admin')
         return $next($request);
         return response()->json(['message'=> 'Unauthanteceted'], 403);
     }

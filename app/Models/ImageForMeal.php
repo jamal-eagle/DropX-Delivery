@@ -10,13 +10,13 @@ class ImageForMeal extends Model
     use HasFactory;
 
     protected $fillable = [
-        'meals_id',
+        'meal_id',
         'image',
         'description',
     ];
 
     public function meal()
     {
-        return $this->belongsTo(Meal::class,'meals_id');
+        return $this->belongsTo(Meal::class,'meal_id');
     }
 }

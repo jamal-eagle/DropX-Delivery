@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('image_for_meals', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('meals_id')->constrained()->onDelete('cascade');
+            $table->foreignId('meal_id')->constrained()->onDelete('cascade');
             $table->string('image');
             $table->string('description')->nullable();
 

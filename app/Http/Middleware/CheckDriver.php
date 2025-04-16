@@ -12,7 +12,7 @@ class CheckDriver
 
     public function handle(Request $request, Closure $next): Response
     {
-        if(Auth::user()->role === 'driver')
+        if(Auth::user()->user_type === 'driver')
         return $next($request);
         return response()->json(['message'=> 'Unauthanteceted'], 403);
     }

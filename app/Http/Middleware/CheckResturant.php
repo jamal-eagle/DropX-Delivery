@@ -12,7 +12,7 @@ class CheckResturant
 
     public function handle(Request $request, Closure $next): Response
     {
-        if(Auth::user()->role === 'resturant')
+        if(Auth::user()->user_type === 'resturant')
         return $next($request);
         return response()->json(['message'=> 'Unauthanteceted'], 403);
     }
