@@ -5,6 +5,7 @@ namespace App\Http\Controllers\auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Models\Area;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,5 +64,16 @@ public function logout(Request $request)
         'message' => 'تم تسجيل الخروج بنجاح',
     ]);
 }
+
+public function index()
+    {
+        $areas = Area::select('id', 'city', 'neighborhood')->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'قائمة المناطق',
+            'data' => $areas
+        ]);
+    }
 
 }
