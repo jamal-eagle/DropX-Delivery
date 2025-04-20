@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('meals', function (Blueprint $table) {
             $table->id();
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
+            $table->foreignId('restaurant_id')->constrained()->onDelete('cascade');
             $table->string('name', 100);
             $table->decimal('original_price', 10, 2);
             $table->boolean('is_available')->default(true);

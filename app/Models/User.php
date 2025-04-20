@@ -31,8 +31,6 @@ class User extends Authenticatable
         'remember_token',
         'is_active',
         'user_type',
-        'latitude',
-        'longitude',
         'fcm_token',
         'deleted_at',
         'created_at',

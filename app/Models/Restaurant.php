@@ -38,5 +38,9 @@ class Restaurant extends Model
     {
         return $query->where('status', 'open');
     }
+    public function meals()
+    {
+        return $this->hasMany(Meal::class);
+    }
 
 }

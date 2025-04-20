@@ -68,6 +68,6 @@ class Kernel extends HttpKernel
         'checkUserType' => \App\Http\Middleware\CheckUserType::class,
         'Is-resturant' => \app\Http\Middleware\CheckResturant::class,
         'Is-driver' => \app\Http\Middleware\CheckDriver::class,
-        'Is-customer' => \app\Http\Middleware\CheckCustomer::class,
+        'CheckCustomer' => \app\Http\Middleware\CheckCustomer::class,
     ];
 }
