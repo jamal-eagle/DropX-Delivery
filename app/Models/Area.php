@@ -15,6 +15,7 @@ class Area extends Model
 
     public function users()
     {
-        return $this->belongsToMany(User::class);
+    return $this->belongsToMany(User::class, 'area_user')
+                ->withTimestamps();
     }
 }

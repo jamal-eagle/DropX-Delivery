@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\AdvertisementController;
+use App\Http\Controllers\area\AreaController;
 use App\Http\Controllers\auth\AuthController;
 use App\Http\Controllers\meal\MealController;
 use App\Http\Controllers\meal\SearchController;
+use App\Http\Controllers\order\OrderController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -30,10 +32,24 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 Route::prefix('user')->middleware(['auth:sanctum',\App\Http\Middleware\CheckCustomer::class])->group(function () {
+    Route::get('infoUser',[AuthController::class,'userInfo']);
+    Route::put('updateUserInfo',[AuthController::class,'updateUserInfo']);
     Route::get('/all-ads',[AdvertisementController::class,'get_all_ads']);
     Route::get('searchByResturant',[SearchController::class,'searchByNameResturant']);
     Route::get('desplayResturantWithmeals',[SearchController::class,'getRestaurantsInMyAreaWithMeals']);
     Route::get('searchMealByName',[SearchController::class,'searchMealByName']);
+    Route::post('addAddress',[AreaController::class,'addAddress']);
+    Route::get('/desplayMyAddresses', [AreaController::class, 'getMyAddresses']);
+    Route::delete('/addresses/{areaId}', [AreaController::class, 'deleteAddress']);
+    Route::post('addOrder',[OrderController::class,'createOrder']);
+    Route::post('/orders/{order_id}/apply-promo', [OrderController::class, 'applyPromoToOrder1']);
+    Route::put('/updateOrders/{order_id}', [OrderController::class, 'updateOrder']);
+    Route::put('updateOrAddMealToOrder/{orderId}',[OrderController::class,'updateOrAddMealToOrder']);
+    Route::delete('deleteMealsFromOrder/{orderId}',[OrderController::class,'deleteOrderMeals']);
+    Route::get('/getMyAllOrder', [OrderController::class, 'getMyOrders']);
+
+
+
 });
 
 

@@ -17,14 +17,12 @@ return new class extends Migration
             $table->foreignId('restaurant_id')->constrained()->onDelete('cascade');
             $table->foreignId('driver_id')->nullable()->constrained()->onDelete('set null');
             $table->enum('status', ['pending', 'preparing', 'on_delivery', 'delivered']);
-            $table->boolean('is_accepted')->default(false);
+            $table->boolean('is_accepted')->default(true);
             $table->decimal('total_price', 10, 2);
             $table->text('delivery_address');
             $table->text('notes')->nullable();
-            $table->decimal('delivery_fee', 10, 2);
-            $table->foreignId('promo_code_id')->nullable()->constrained()->onDelete('set null');
-            $table->string('barcode', 50)->unique();
-            $table->enum('scanned_by', ['customer', 'driver'])->nullable();
+            $table->decimal('delivery_fee', 10, 2)->nullable();
+            $table->text('barcode')->unique();
             $table->timestamps();
         });
     }

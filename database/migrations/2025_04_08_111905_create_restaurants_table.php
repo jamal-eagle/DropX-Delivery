@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('user_id')->unique()->constrained()->onDelete('cascade');
-            $table->string('name', 100);
             $table->string('image', 255)->nullable();
             $table->text('description')->nullable();
             $table->time('working_hours_start')->nullable();

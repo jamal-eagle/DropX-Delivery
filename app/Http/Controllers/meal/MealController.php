@@ -17,16 +17,6 @@ public function storeMeal(MealRequest $request)
             'original_price' => $request->original_price,
         ]);
 
-        // if ($request->hasFile('images')) {
-        //     foreach ($request->file('images') as $image) {
-        //         $path = $image->store('meals', 'public');
-
-        //         $meal->images()->create([
-        //             'image' => $path,
-        //             'description' => null,
-        //         ]);
-        //     }
-        // }
 
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $index => $image) {

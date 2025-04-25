@@ -20,9 +20,7 @@ class Order extends Model
         'delivery_address',
         'notes',
         'delivery_fee',
-        'promo_code_id',
         'barcode',
-        'scanned_by',
     ];
 
 
@@ -40,11 +38,6 @@ class Order extends Model
     public function driver()
     {
         return $this->belongsTo(Driver::class);
-    }
-
-    public function promoCode()
-    {
-        return $this->belongsTo(PromoCode::class);
     }
 
     public function orderItems()

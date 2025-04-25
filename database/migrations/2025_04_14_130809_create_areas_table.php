@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('areas', function (Blueprint $table) {
             $table->id();
             $table->string('city', 100);         // اسم المدينة
-            $table->string('neighborhood', 100);
+            $table->string('neighborhood', 200);
             $table->timestamps();
         });
     }

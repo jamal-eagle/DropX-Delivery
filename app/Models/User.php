@@ -8,7 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use SebastianBergmann\CodeCoverage\Driver\Driver;
+use App\Models\Driver;
 
 
 class User extends Authenticatable
@@ -60,11 +60,6 @@ class User extends Authenticatable
         return $this->hasOne(Driver::class);
     }
 
-    public function admin()
-    {
-        return $this->hasOne(Admin::class);
-    }
-
     public function promoCodes()
     {
         return $this->belongsToMany(PromoCode::class, 'user_promo_codes')
@@ -73,11 +68,11 @@ class User extends Authenticatable
     }
     public function areas()
     {
-        return $this->belongsToMany(Area::class);
+        return $this->belongsToMany(Area::class, 'area_user')->withTimestamps();
     }
 
-    // public function orders()
-    // {
-    //     return $this->hasMany(Order::class);
-    // }
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
 }

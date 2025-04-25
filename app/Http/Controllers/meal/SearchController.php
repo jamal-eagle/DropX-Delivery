@@ -16,7 +16,7 @@ class SearchController extends Controller
 
         $userAreaIds = $user->areas->pluck('id');
 
-        $restaurants = \App\Models\User::whereHas('areas', function ($query) use ($userAreaIds) {
+        $restaurants = User::whereHas('areas', function ($query) use ($userAreaIds) {
             $query->whereIn('areas.id', $userAreaIds);
         })
         ->whereHas('restaurant')
@@ -25,10 +25,12 @@ class SearchController extends Controller
             'restaurant',
         ])
         ->get();
-
+        $restaurant =$restaurants->user ;
         return response()->json([
             'status' => true,
+            'basic-information' => $restaurant,
             'restaurants' => $restaurants
+
         ]);
     }
 

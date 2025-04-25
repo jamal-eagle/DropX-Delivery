@@ -30,7 +30,7 @@ class AuthController extends Controller
     return response()->json([
         'user'    => $user,
         'message' => 'تم انشاء الحساب بنجاح',
-        //'token'   => $token,
+        'token'   => $token,
 
     ]);
 }
@@ -75,5 +75,61 @@ public function index()
             'data' => $areas
         ]);
     }
+
+public function userInfo()
+    {
+        $user = auth()->user();
+        $userWithArea = $user->areas;
+        return response()->json([
+            'user'=>$user ,
+            'area'=>$userWithArea
+        ]);
+    }
+
+public function updateUserInfo(Request $request)
+    {
+        $request->validate([
+            'fullname' => 'nullable|string|max:75',
+            'phone' => 'nullable|string|max:15|unique:users,phone,' . auth()->id(),
+            'city' => 'nullable|string|max:100',
+            'neighborhood' => 'nullable|string|max:100',
+        ]);
+
+        $user = auth()->user();
+
+        if ($request->filled('fullname')) {
+            $user->fullname = $request->fullname;
+        }
+
+        if ($request->filled('phone')) {
+            $user->phone = $request->phone;
+        }
+
+        $user->save();
+
+        if ($request->filled('city') && $request->filled('neighborhood')) {
+            if ($user->areas()->count() >= 5) {
+                return response()->json([
+                    'message' => 'لا يمكنك إضافة أكثر من 5 مناطق.',
+                ], 422);
+            }
+
+            $area = Area::firstOrCreate([
+                'city' => $request->city,
+                'neighborhood' => $request->neighborhood,
+            ]);
+
+            if (!$user->areas()->where('area_id', $area->id)->exists()) {
+                $user->areas()->attach($area->id);
+            }
+        }
+
+        return response()->json([
+            'message' => 'تم تحديث بيانات المستخدم بنجاح.',
+            'user' => $user->load('areas'),
+        ]);
+    }
+
+
 
 }
