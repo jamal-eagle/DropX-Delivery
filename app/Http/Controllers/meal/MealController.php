@@ -34,6 +34,6 @@ public function storeMeal(MealRequest $request)
             'status' => true,
             'message' => 'تمت إضافة الوجبة بنجاح',
             'meal' => $meal->load('images')
-        ]);
+        ],201);
     }
 }

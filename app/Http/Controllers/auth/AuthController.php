@@ -32,7 +32,7 @@ class AuthController extends Controller
         'message' => 'تم انشاء الحساب بنجاح',
         'token'   => $token,
 
-    ]);
+    ],201);
 }
 
 
@@ -53,7 +53,7 @@ public function login(LoginRequest $request)
         'user' => $user,
         'message' => 'تم تسجيل الدخول بنجاح',
         'token' => $token,
-    ]);
+    ],200);
 }
 
 public function logout(Request $request)
@@ -62,7 +62,7 @@ public function logout(Request $request)
     return response()->json([
         'status' => true,
         'message' => 'تم تسجيل الخروج بنجاح',
-    ]);
+    ],204);
 }
 
 public function index()
@@ -73,7 +73,7 @@ public function index()
             'status' => true,
             'message' => 'قائمة المناطق',
             'data' => $areas
-        ]);
+        ],200);
     }
 
 public function userInfo()
@@ -83,7 +83,7 @@ public function userInfo()
         return response()->json([
             'user'=>$user ,
             'area'=>$userWithArea
-        ]);
+        ],200);
     }
 
 public function updateUserInfo(Request $request)
@@ -127,7 +127,7 @@ public function updateUserInfo(Request $request)
         return response()->json([
             'message' => 'تم تحديث بيانات المستخدم بنجاح.',
             'user' => $user->load('areas'),
-        ]);
+        ],201);
     }
 
 

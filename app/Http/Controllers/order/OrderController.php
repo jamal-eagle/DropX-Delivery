@@ -48,7 +48,7 @@ class OrderController extends Controller
                 if (!$restaurantId) {
                     $restaurantId = $meal->restaurant_id;
                 } elseif ($restaurantId != $meal->restaurant_id) {
-                    return response()->json(['message' => 'كامل الطلب يجب أن يكون من نفس المطعم.'], 422);
+                    return response()->json(['message' => 'كامل الطلب يجب أن يكون من نفس المطعم.'], 400);
                 }
 
                 $totalPrice += $meal->original_price * $item['quantity'];
@@ -107,7 +107,7 @@ class OrderController extends Controller
                 'order' => $order,
                 'total_price' => round($totalPrice, 2),
                 'barcode_url' => asset('storage/' . $barcodePath),
-            ]);
+            ],201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -137,7 +137,7 @@ class OrderController extends Controller
         if (!in_array($order->status, ['preparing', 'pending'])) {
             return response()->json([
                 'message' => 'لا يمكن تطبيق كود الخصم إلا على الطلبات في مرحلة التحضير أو الانتظار.',
-            ], 422);
+            ], 400);
         }
 
         if ($order->promo_code_id) {
@@ -203,7 +203,7 @@ class OrderController extends Controller
             'discount_value' => $promo->discount_value,
             'discount' => round($discount, 2),
             'final_price' => round($finalPrice, 2),
-        ]);
+        ],201);
     }
 
     public function updateOrder(UpdateOrderRequest $request, $order_id)
@@ -220,7 +220,7 @@ class OrderController extends Controller
         }
 
         if ($order->status !== 'pending') {
-            return response()->json(['message' => 'لا يمكن تعديل الطلب إلا إذا كان في مرحلة الانتظار.'], 422);
+            return response()->json(['message' => 'لا يمكن تعديل الطلب إلا إذا كان في مرحلة الانتظار.'], 400);
         }
 
         DB::beginTransaction();
@@ -242,7 +242,6 @@ class OrderController extends Controller
                 $order->delivery_address = "{$address->city} - {$address->neighborhood}";
             }
 
-            // ✅ تعديل الملاحظات إن وجدت
             if ($request->filled('notes')) {
                 $order->notes = $request->notes;
             }
@@ -254,7 +253,7 @@ class OrderController extends Controller
             return response()->json([
                 'message' => 'تم تعديل الطلب بنجاح.',
                 'order' => $order->load('orderItems.meal'),
-            ]);
+            ],201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -330,7 +329,7 @@ public function updateOrAddMealToOrder(Request $request, $orderId)
         return response()->json([
             'message' => 'تم تعديل الوجبات بنجاح',
             'order' => $order->load('orderItems.meal'),
-        ]);
+        ],201);
 
     } catch (\Exception $e) {
         DB::rollBack();
@@ -397,7 +396,7 @@ public function updateOrAddMealToOrder(Request $request, $orderId)
                 'message' => 'تم حذف الوجبة/الوجبات بنجاح',
                 'new_total_price' => round($newTotal, 2),
                 'order' => $order->load('orderItems.meal'),
-            ]);
+            ],201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -445,6 +444,6 @@ public function updateOrAddMealToOrder(Request $request, $orderId)
 
         return response()->json([
             'orders' => $result,
-        ]);
+        ],200);
     }
 }

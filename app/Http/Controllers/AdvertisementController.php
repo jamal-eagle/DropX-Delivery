@@ -32,13 +32,13 @@ class AdvertisementController extends Controller
                 'status' => true,
                 'message' => 'تم إضافة الإعلان بنجاح',
                 'data' => $ad,
-            ]);
+            ],201);
         }
 
     public function get_all_ads()
         {
             $ads = Advertisement::select('id', 'title', 'description','image')->get();
-            return  response()->json([$ads]);
+            return  response()->json([$ads],200);
         }
 
     public function update_Ads(UpdateAdRequest $request, $id)
@@ -60,7 +60,7 @@ class AdvertisementController extends Controller
                 'status' => true,
                 'message' => 'تم تعديل الإعلان بنجاح',
                 'ad' => $ad
-            ]);
+            ],200);
 
 
         }

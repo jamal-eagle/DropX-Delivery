@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
-    public function getRestaurantsByCity($city)
+public function getRestaurantsByCity($city)
     {
         $restaurants = User::whereHas('areas', function ($query) use ($city) {
             $query->where('city', $city);
@@ -46,7 +46,7 @@ class SearchController extends Controller
             'status' => true,
             'city' => $city,
             'restaurants' => $formattedRestaurants,
-        ]);
+        ],200);
     }
 
 
@@ -95,7 +95,7 @@ class SearchController extends Controller
                 'details' => $restaurant,
             ],
             'categories' => $categories
-        ]);
+        ],200);
     }
 
     public function searchMealByName(Request $request)
@@ -121,6 +121,6 @@ class SearchController extends Controller
         return response()->json([
             'status' => true,
             'restaurants' => $restaurants
-        ]);
+        ],200);
     }
 }

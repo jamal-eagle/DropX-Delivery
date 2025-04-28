@@ -21,7 +21,7 @@ public function addAddress(Request $request)
     if ($user->areas()->count() >= 5) {
         return response()->json([
             'message' => 'لا يمكنك إضافة أكثر من 5 عناوين يرجى حذف عنوان سابق.',
-        ], 422);
+        ], 400);
     }
 
     $area = Area::where('city', $request->city)
@@ -37,7 +37,7 @@ public function addAddress(Request $request)
     if ($user->areas()->where('area_id', $area->id)->exists()) {
         return response()->json([
             'message' => 'هذا العنوان مضاف مسبقًا.',
-        ], 409);
+        ], 400);
 
     }
 
@@ -46,7 +46,7 @@ public function addAddress(Request $request)
     return response()->json([
         'message' => 'تمت إضافة العنوان بنجاح.',
         'area' => $area,
-    ]);
+    ],201);
 }
 public function deleteAddress($areaId)
     {
@@ -58,7 +58,7 @@ public function deleteAddress($areaId)
             return response()->json(['message' => 'العنوان غير موجود أو غير مرتبط بك.'], 404);
         }
 
-        return response()->json(['message' => 'تم حذف العنوان بنجاح.']);
+        return response()->json(['message' => 'تم حذف العنوان بنجاح.'],204);
 }
 
 public function getMyAddresses()
@@ -67,7 +67,7 @@ public function getMyAddresses()
 
         $areas = $user->areas()->get(['areas.id', 'city', 'neighborhood']);
 
-        return response()->json($areas);
+        return response()->json([$areas,200]);
 }
 
 
