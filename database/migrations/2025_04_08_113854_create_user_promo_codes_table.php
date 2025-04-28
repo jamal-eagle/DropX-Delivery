@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('user_promo_codes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->foreignId('promo_code_id')->constrained()->onDelete('cascade');
             $table->text('fcm_token')->nullable();
             $table->boolean('is_used')->default(false);

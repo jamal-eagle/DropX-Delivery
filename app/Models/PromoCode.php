@@ -23,12 +23,13 @@ class PromoCode extends Model
     public function users()
     {
         return $this->belongsToMany(User::class, 'user_promo_codes')
-                    ->withPivot('is_used', 'used_at')
-                    ->withTimestamps();
+            ->withPivot('is_used', 'used_at')
+            ->withTimestamps();
     }
 
     public function orders()
     {
-        return $this->hasMany(Order::class);
+        return $this->belongsToMany(PromoCode::class, 'user_promo_codes')
+            ->withTimestamps();
     }
 }

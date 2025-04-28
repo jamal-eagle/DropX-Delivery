@@ -10,29 +10,46 @@ use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
-    public function getRestaurantsInMyAreaWithMeals()
+    public function getRestaurantsByCity($city)
     {
-        $user = auth()->user();
-
-        $userAreaIds = $user->areas->pluck('id');
-
-        $restaurants = User::whereHas('areas', function ($query) use ($userAreaIds) {
-            $query->whereIn('areas.id', $userAreaIds);
+        $restaurants = User::whereHas('areas', function ($query) use ($city) {
+            $query->where('city', $city);
         })
-        ->whereHas('restaurant')
-        ->with([
-            'restaurant.meals',
-            'restaurant',
-        ])
-        ->get();
-        $restaurant =$restaurants->user ;
+            ->whereHas('restaurant')
+            ->with([
+                'restaurant.categories.meals',
+            ])
+            ->get();
+
+        $formattedRestaurants = $restaurants->map(function ($user) {
+            return [
+                'user_info' => [
+                    $user
+                ],
+                'restaurant_info' => [
+                    'description' => $user->restaurant
+                ],
+                'categories' => $user->restaurant->categories->map(function ($category) {
+                    return [
+                        'category_name' => $category->name,
+                        'meals' => $category->meals->map(function ($meal) {
+                            return [
+                                $meal
+                            ];
+                        }),
+                    ];
+                }),
+            ];
+        });
+
         return response()->json([
             'status' => true,
-            'basic-information' => $restaurant,
-            'restaurants' => $restaurants
-
+            'city' => $city,
+            'restaurants' => $formattedRestaurants,
         ]);
     }
+
+
 
 
 
@@ -50,10 +67,10 @@ class SearchController extends Controller
         $restaurantUser = User::whereHas('areas', function ($query) use ($userAreaIds) {
             $query->whereIn('areas.id', $userAreaIds);
         })
-        ->where('fullname', 'LIKE', '%' . $request->name . '%')
-        ->whereHas('restaurant')
-        ->with('restaurant')
-        ->first();
+            ->where('fullname', 'LIKE', '%' . $request->name . '%')
+            ->whereHas('restaurant')
+            ->with('restaurant')
+            ->first();
 
         if (!$restaurantUser) {
             return response()->json([
@@ -93,18 +110,17 @@ class SearchController extends Controller
         $restaurants = User::whereHas('areas', function ($query) use ($userAreaIds) {
             $query->whereIn('areas.id', $userAreaIds);
         })
-        ->whereHas('restaurant.meals', function ($q) use ($request) {
-            $q->where('name', 'LIKE', '%' . $request->name . '%');
-        })
-        ->with(['restaurant.meals' => function ($q) use ($request) {
-            $q->where('name', 'LIKE', '%' . $request->name . '%');
-        }, 'restaurant'])
-        ->get();
+            ->whereHas('restaurant.meals', function ($q) use ($request) {
+                $q->where('name', 'LIKE', '%' . $request->name . '%');
+            })
+            ->with(['restaurant.meals' => function ($q) use ($request) {
+                $q->where('name', 'LIKE', '%' . $request->name . '%');
+            }, 'restaurant'])
+            ->get();
 
         return response()->json([
             'status' => true,
             'restaurants' => $restaurants
         ]);
     }
-
 }
