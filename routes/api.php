@@ -35,9 +35,9 @@ Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCus
     Route::get('infoUser', [AuthController::class, 'userInfo']);
     Route::put('updateUserInfo', [AuthController::class, 'updateUserInfo']);
     Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);
-    Route::get('searchByResturant', [SearchController::class, 'searchByNameResturant']);
+    Route::get('searchByNameResturant/{city}', [SearchController::class, 'searchByNameResturant']);
     Route::get('getRestaurantsByCity/{city}', [SearchController::class, 'getRestaurantsByCity']);
-    Route::get('searchMealByName', [SearchController::class, 'searchMealByName']);
+    Route::get('searchMealByName/{city}', [SearchController::class, 'searchMealByName']);
     Route::post('addAddress', [AreaController::class, 'addAddress']);
     Route::get('/desplayMyAddresses', [AreaController::class, 'getMyAddresses']);
     Route::delete('/deleteAddresses/{areaId}', [AreaController::class, 'deleteAddress']);
