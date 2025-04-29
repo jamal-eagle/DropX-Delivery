@@ -16,8 +16,8 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('restaurant_id')->constrained()->onDelete('cascade');
             $table->foreignId('driver_id')->nullable()->constrained()->onDelete('set null');
-            $table->enum('status', ['pending', 'preparing', 'on_delivery', 'delivered']);
-            $table->boolean('is_accepted')->default(true);
+            $table->enum('status', ['pending', 'preparing', 'on_delivery', 'delivered','rejected']);
+            $table->boolean('is_accepted')->default(false);
             $table->decimal('total_price', 10, 2);
             $table->text('delivery_address');
             $table->text('notes')->nullable();

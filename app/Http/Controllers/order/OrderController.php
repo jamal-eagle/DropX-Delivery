@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Endroid\QrCode\Builder\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class OrderController extends Controller
 {
@@ -97,8 +98,7 @@ class OrderController extends Controller
                     'price' => $meal->original_price,
                 ]);
             }
-
-
+            Cache::forget("pending_orders_restaurant_{$restaurantId}");
             DB::commit();
 
             return response()->json([
@@ -107,7 +107,7 @@ class OrderController extends Controller
                 'order' => $order,
                 'total_price' => round($totalPrice, 2),
                 'barcode_url' => asset('storage/' . $barcodePath),
-            ],201);
+            ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -181,8 +181,8 @@ class OrderController extends Controller
             'promo_code_id' => $promo->id,
         ]);
         DB::table('promo_codes')
-        ->where('id', $promo->id)
-        ->decrement('max_uses');
+            ->where('id', $promo->id)
+            ->decrement('max_uses');
 
         DB::table('user_promo_codes')->insert([
             'user_id' => $user->id,
@@ -203,7 +203,7 @@ class OrderController extends Controller
             'discount_value' => $promo->discount_value,
             'discount' => round($discount, 2),
             'final_price' => round($finalPrice, 2),
-        ],201);
+        ], 201);
     }
 
     public function updateOrder(UpdateOrderRequest $request, $order_id)
@@ -247,13 +247,14 @@ class OrderController extends Controller
             }
 
             $order->save();
-
+            $restaurantId = $order->restaurant_id;
+            Cache::forget("pending_orders_restaurant_{$restaurantId}");
             DB::commit();
 
             return response()->json([
                 'message' => 'تم تعديل الطلب بنجاح.',
                 'order' => $order->load('orderItems.meal'),
-            ],201);
+            ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -265,82 +266,82 @@ class OrderController extends Controller
         }
     }
 
-public function updateOrAddMealToOrder(Request $request, $orderId)
-{
-    try {
-        $request->validate([
-            'meals' => 'required|array|min:1',
-            'meals.*.meal_id' => 'required|exists:meals,id',
-            'meals.*.quantity' => 'required|integer|min:1',
-        ]);
+    public function updateOrAddMealToOrder(Request $request, $orderId)
+    {
+        try {
+            $request->validate([
+                'meals' => 'required|array|min:1',
+                'meals.*.meal_id' => 'required|exists:meals,id',
+                'meals.*.quantity' => 'required|integer|min:1',
+            ]);
 
-        $user = auth()->user();
-        $order = Order::where('id', $orderId)->where('user_id', $user->id)->first();
+            $user = auth()->user();
+            $order = Order::where('id', $orderId)->where('user_id', $user->id)->first();
 
-        if (!$order) {
-            return response()->json(['message' => 'الطلب غير موجود'], 404);
-        }
-
-        if (!in_array($order->status, ['pending', 'preparing'])) {
-            return response()->json(['message' => 'لا يمكن تعديل هذا الطلب في حالته الحالية'], 403);
-        }
-
-        DB::beginTransaction();
-
-        $userPromo = DB::table('user_promo_codes')
-            ->where('user_id', $user->id)
-            ->where('order_id', $order->id)
-            ->where('is_used', true)
-            ->first();
-
-        if ($userPromo) {
-            DB::table('promo_codes')
-                ->where('id', $userPromo->promo_code_id)
-                ->increment('max_uses');
-
-            DB::table('user_promo_codes')
-                ->where('id', $userPromo->id)
-                ->delete();
-        }
-
-        foreach ($request->meals as $item) {
-            $meal = Meal::findOrFail($item['meal_id']);
-            $existingItem = $order->orderItems()->where('meal_id', $meal->id)->first();
-
-            if ($existingItem) {
-                $existingItem->update([
-                    'quantity' => $item['quantity'],
-                    'price' => $meal->original_price,
-                ]);
-            } else {
-                $order->orderItems()->create([
-                    'meal_id' => $meal->id,
-                    'quantity' => $item['quantity'],
-                    'price' => $meal->original_price,
-                ]);
+            if (!$order) {
+                return response()->json(['message' => 'الطلب غير موجود'], 404);
             }
+
+            if (!in_array($order->status, ['pending', 'preparing'])) {
+                return response()->json(['message' => 'لا يمكن تعديل هذا الطلب في حالته الحالية'], 403);
+            }
+
+            DB::beginTransaction();
+
+            $userPromo = DB::table('user_promo_codes')
+                ->where('user_id', $user->id)
+                ->where('order_id', $order->id)
+                ->where('is_used', true)
+                ->first();
+
+            if ($userPromo) {
+                DB::table('promo_codes')
+                    ->where('id', $userPromo->promo_code_id)
+                    ->increment('max_uses');
+
+                DB::table('user_promo_codes')
+                    ->where('id', $userPromo->id)
+                    ->delete();
+            }
+
+            foreach ($request->meals as $item) {
+                $meal = Meal::findOrFail($item['meal_id']);
+                $existingItem = $order->orderItems()->where('meal_id', $meal->id)->first();
+
+                if ($existingItem) {
+                    $existingItem->update([
+                        'quantity' => $item['quantity'],
+                        'price' => $meal->original_price,
+                    ]);
+                } else {
+                    $order->orderItems()->create([
+                        'meal_id' => $meal->id,
+                        'quantity' => $item['quantity'],
+                        'price' => $meal->original_price,
+                    ]);
+                }
+            }
+
+            $total = $order->orderItems->sum(fn($item) => $item->quantity * $item->price);
+            $order->update(['total_price' => $total]);
+            $restaurantId = $order->restaurant_id;
+            Cache::forget("pending_orders_restaurant_{$restaurantId}");
+            DB::commit();
+
+            return response()->json([
+                'message' => 'تم تعديل الوجبات بنجاح',
+                'order' => $order->load('orderItems.meal'),
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'حدث خطأ أثناء التعديل',
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+            ], 500);
         }
-
-        $total = $order->orderItems->sum(fn($item) => $item->quantity * $item->price);
-        $order->update(['total_price' => $total]);
-
-        DB::commit();
-
-        return response()->json([
-            'message' => 'تم تعديل الوجبات بنجاح',
-            'order' => $order->load('orderItems.meal'),
-        ],201);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json([
-            'message' => 'حدث خطأ أثناء التعديل',
-            'error' => $e->getMessage(),
-            'line' => $e->getLine(),
-            'file' => $e->getFile(),
-        ], 500);
     }
-}
 
 
     public function deleteOrderMeals(Request $request, $orderId)
@@ -366,37 +367,37 @@ public function updateOrAddMealToOrder(Request $request, $orderId)
 
             DB::beginTransaction();
             $userPromo = DB::table('user_promo_codes')
-            ->where('user_id', $user->id)
-            ->where('order_id', $order->id)
-            ->where('is_used', true)
-            ->first();
+                ->where('user_id', $user->id)
+                ->where('order_id', $order->id)
+                ->where('is_used', true)
+                ->first();
 
-        if ($userPromo) {
-            DB::table('promo_codes')
-                ->where('id', $userPromo->promo_code_id)
-                ->increment('max_uses');
+            if ($userPromo) {
+                DB::table('promo_codes')
+                    ->where('id', $userPromo->promo_code_id)
+                    ->increment('max_uses');
 
-            DB::table('user_promo_codes')
-                ->where('id', $userPromo->id)
-                ->delete();
-        }
-            // نحذف الوجبات المطلوبة
+                DB::table('user_promo_codes')
+                    ->where('id', $userPromo->id)
+                    ->delete();
+            }
+
             $order->orderItems()->whereIn('meal_id', $request->meal_ids)->delete();
 
-            // نحدث السعر الإجمالي الجديد
             $newTotal = $order->orderItems->sum(function ($item) {
                 return $item->quantity * $item->price;
             });
 
             $order->update(['total_price' => $newTotal]);
-
+            $restaurantId = $order->restaurant_id;
+            Cache::forget("pending_orders_restaurant_{$restaurantId}");
             DB::commit();
 
             return response()->json([
                 'message' => 'تم حذف الوجبة/الوجبات بنجاح',
                 'new_total_price' => round($newTotal, 2),
                 'order' => $order->load('orderItems.meal'),
-            ],201);
+            ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -444,6 +445,6 @@ public function updateOrAddMealToOrder(Request $request, $orderId)
 
         return response()->json([
             'orders' => $result,
-        ],200);
+        ], 200);
     }
 }

@@ -47,15 +47,11 @@ public function getRestaurantsByCity($city)
             'status' => true,
             'city' => $city,
             'restaurants' => $formattedRestaurants,
-        ],200);
+        ], 200);
     }
 
 
-
-
-
-
-    public function searchByNameResturant(Request $request,$city)
+public function searchByNameResturant(Request $request, $city)
     {
         $user = auth()->user();
 
@@ -68,10 +64,10 @@ public function getRestaurantsByCity($city)
         $restaurantUser = User::whereHas('areas', function ($query) use ($userAreaIds) {
             $query->whereIn('areas.id', $userAreaIds);
         })
-        ->where('fullname', 'LIKE', '%' . $request->name . '%')
-        ->whereHas('restaurant')
-        ->with(['restaurant', 'restaurant.meals.images'])
-        ->first();
+            ->where('fullname', 'LIKE', '%' . $request->name . '%')
+            ->whereHas('restaurant')
+            ->with(['restaurant', 'restaurant.meals.images'])
+            ->first();
 
         if (!$restaurantUser) {
             return response()->json([
@@ -85,10 +81,10 @@ public function getRestaurantsByCity($city)
         $categories = Category::whereHas('meals', function ($q) use ($restaurant) {
             $q->where('restaurant_id', $restaurant->id);
         })
-        ->with(['meals' => function ($q) use ($restaurant) {
-            $q->where('restaurant_id', $restaurant->id);
-        }, 'meals.images'])
-        ->get();
+            ->with(['meals' => function ($q) use ($restaurant) {
+                $q->where('restaurant_id', $restaurant->id);
+            }, 'meals.images'])
+            ->get();
 
         return response()->json([
             'status' => true,
@@ -115,7 +111,7 @@ public function getRestaurantsByCity($city)
     }
 
 
-    public function searchMealByName(Request $request,$city)
+    public function searchMealByName(Request $request, $city)
     {
         $request->validate([
             'name' => 'required|string',
@@ -135,17 +131,17 @@ public function getRestaurantsByCity($city)
         $restaurants = User::whereHas('areas', function ($query) use ($areaIds) {
             $query->whereIn('areas.id', $areaIds);
         })
-        ->whereHas('restaurant.meals', function ($query) use ($mealName) {
-            $query->where('name', 'LIKE', '%' . $mealName . '%');
-        })
-        ->with([
-            'restaurant.meals' => function ($query) use ($mealName) {
-                $query->where('name', 'LIKE', '%' . $mealName . '%')
-                    ->with('images');
-            },
-            'restaurant',
-        ])
-        ->get();
+            ->whereHas('restaurant.meals', function ($query) use ($mealName) {
+                $query->where('name', 'LIKE', '%' . $mealName . '%');
+            })
+            ->with([
+                'restaurant.meals' => function ($query) use ($mealName) {
+                    $query->where('name', 'LIKE', '%' . $mealName . '%')
+                        ->with('images');
+                },
+                'restaurant',
+            ])
+            ->get();
 
         if ($restaurants->isEmpty()) {
             return response()->json([
@@ -159,5 +155,4 @@ public function getRestaurantsByCity($city)
             'restaurants' => $restaurants,
         ], 200);
     }
-
 }

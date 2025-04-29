@@ -12,8 +12,8 @@ class CheckResturant
 
     public function handle(Request $request, Closure $next): Response
     {
-        if(Auth::user()->user_type === 'resturant')
-        return $next($request);
-        return response()->json(['message'=> 'Unauthanteceted'], 403);
+        if (Auth::user()->user_type === 'restaurant')
+            return $next($request);
+        return response()->json(['message' => 'Unauthanteceted'], 403);
     }
 }

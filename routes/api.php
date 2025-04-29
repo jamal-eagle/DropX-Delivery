@@ -6,7 +6,10 @@ use App\Http\Controllers\auth\AuthController;
 use App\Http\Controllers\meal\MealController;
 use App\Http\Controllers\meal\SearchController;
 use App\Http\Controllers\order\OrderController;
+use App\Http\Controllers\resturant\ResturantController;
+use App\Http\Middleware\CheckResturant;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,6 +52,13 @@ Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCus
     Route::get('/getMyAllOrder', [OrderController::class, 'getMyOrders']);
 });
 
+
+Route::prefix('resturant')->middleware(['auth:sanctum',CheckResturant::class])->group(function () {
+    Route::get('/getPreparingOrders',[ResturantController::class,'getPreparingOrders']);
+    Route::get('/getNewOrders',[ResturantController::class,'getPendingOrders']);
+    Route::put('/acceptOrder/{orderId}',[ResturantController::class,'acceptOrder']);
+    Route::put('/rejectOrder/{orderId}',[ResturantController::class,'rejectOrder']);
+});
 
 
 
