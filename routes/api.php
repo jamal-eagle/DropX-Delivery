@@ -58,6 +58,14 @@ Route::prefix('resturant')->middleware(['auth:sanctum',CheckResturant::class])->
     Route::get('/getNewOrders',[ResturantController::class,'getPendingOrders']);
     Route::put('/acceptOrder/{orderId}',[ResturantController::class,'acceptOrder']);
     Route::put('/rejectOrder/{orderId}',[ResturantController::class,'rejectOrder']);
+    Route::get('/getOrderDetails/{orderId}',[ResturantController::class,'getOrderDetails']);
+    Route::put('/updateWorkingHours',[ResturantController::class,'updateWorkingHours']);
+    Route::put('/updateResturantStatusClosed',[ResturantController::class,'updateResturantStatusClose']);
+    Route::put('/updateResturantStatusOpened',[ResturantController::class,'updateResturantStatusOpen']);
+    Route::get('/desplayMyMeals',[ResturantController::class,'desplayMyMeals']);
+    Route::put('/updateMealStatus/{mealId}',[ResturantController::class,'toggleMealAvailability']);
+    Route::get('/getProfileResturant',[ResturantController::class,'getResturantProfile']);
+
 });
 
 
