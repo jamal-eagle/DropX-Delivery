@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class LoginRequest extends FormRequest
 {
@@ -27,4 +29,15 @@ class LoginRequest extends FormRequest
             'phone.exists' => 'رقم الهاتف غير مسجل لدينا.',
         ];
     }
+
+    public function failedValidation(Validator $validator)
+    {
+        throw new HttpResponseException(response()->json([
+            'status' => false,
+            'message' => 'خطأ في التحقق من البيانات',
+            'errors' => $validator->errors()
+        ], 401));
+    }
+
+
 }

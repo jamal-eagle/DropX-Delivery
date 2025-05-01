@@ -39,7 +39,6 @@ class AuthController extends Controller
 public function login(LoginRequest $request)
 {
     $user = User::where('phone', $request->phone)->first();
-
     if (!Auth::attempt($request->only('phone','password'))) {
         return response()->json([
             'status' => false,
