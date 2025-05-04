@@ -5,10 +5,12 @@ namespace App\Http\Controllers\order;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderRequest;
+use App\Models\Area;
 use App\Models\Meal;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PromoCode;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\Cache;
 
 class OrderController extends Controller
 {
-    public function createOrder(Request $request)
+    public function createOrderWithPromo(Request $request)
     {
         $request->validate([
             'meals' => 'required|array|min:1',
@@ -26,6 +28,7 @@ class OrderController extends Controller
             'meals.*.quantity' => 'required|integer|min:1',
             'address_id' => 'required|exists:area_user,id',
             'notes' => 'nullable|string',
+            'promo_code' => 'nullable|string',
         ]);
 
         $user = auth()->user();
@@ -34,9 +37,10 @@ class OrderController extends Controller
         try {
             $totalPrice = 0;
             $restaurantId = null;
+            $promo = null;
+            $discount = 0;
 
             $mealIds = collect($request->meals)->pluck('id')->toArray();
-
             $meals = Meal::whereIn('id', $mealIds)->get()->keyBy('id');
 
             foreach ($request->meals as $item) {
@@ -54,6 +58,7 @@ class OrderController extends Controller
 
                 $totalPrice += $meal->original_price * $item['quantity'];
             }
+
             $address = DB::table('area_user')
                 ->join('areas', 'area_user.area_id', '=', 'areas.id')
                 ->where('area_user.id', $request->address_id)
@@ -65,15 +70,40 @@ class OrderController extends Controller
                 return response()->json(['message' => 'العنوان غير موجود.'], 404);
             }
 
+            if ($request->filled('promo_code')) {
+                $promo = PromoCode::where('code', $request->promo_code)
+                    ->where('is_active', true)
+                    ->where('expiry_date', '>', now())
+                    ->first();
+
+                if (!$promo) {
+                    return response()->json(['message' => 'كود الخصم غير صالح أو منتهي.'], 404);
+                }
+
+                if ($totalPrice < $promo->min_order_value) {
+                    return response()->json(['message' => 'قيمة الطلب أقل من الحد الأدنى لهذا الكود.'], 422);
+                }
+
+                $alreadyUsed = DB::table('user_promo_codes')
+                    ->where('user_id', $user->id)
+                    ->where('promo_code_id', $promo->id)
+                    ->where('is_used', true)
+                    ->exists();
+
+                if ($alreadyUsed) {
+                    return response()->json(['message' => 'لقد استخدمت هذا الكود مسبقًا.'], 403);
+                }
+
+                $discount = $promo->discount_type === 'percentage'
+                    ? $totalPrice * ($promo->discount_value / 100)
+                    : $promo->discount_value;
+
+                $totalPrice -= $discount;
+            }
+
             $barcodeText = 'order-' . Str::uuid();
             $barcodePath = 'barcodes/' . $barcodeText . '.png';
-
-            $result = Builder::create()
-                ->data($barcodeText)
-                ->size(300)
-                ->margin(10)
-                ->build();
-
+            $result = Builder::create()->data($barcodeText)->size(300)->margin(10)->build();
             Storage::disk('public')->put($barcodePath, $result->getString());
 
             $order = Order::create([
@@ -98,14 +128,30 @@ class OrderController extends Controller
                     'price' => $meal->original_price,
                 ]);
             }
+
+            if ($promo) {
+                DB::table('promo_codes')->where('id', $promo->id)->decrement('max_uses');
+                DB::table('user_promo_codes')->insert([
+                    'user_id' => $user->id,
+                    'order_id' => $order->id,
+                    'promo_code_id' => $promo->id,
+                    'fcm_token' => $user->fcm_token,
+                    'is_used' => true,
+                    'used_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
             Cache::forget("pending_orders_restaurant_{$restaurantId}");
             DB::commit();
 
             return response()->json([
-                'message' => 'تم إنشاء الطلب بنجاح',
-                'order_id' => $order->id,
-                'order' => $order,
-                'total_price' => round($totalPrice, 2),
+                'message' => 'تم إنشاء الطلب' . ($promo ? ' مع تطبيق كود الخصم' : '') . ' بنجاح',
+                'order_Details' => $order,
+                'original_price' => round($totalPrice + $discount, 2),
+                'discount' => round($discount, 2),
+                'final_price' => round($totalPrice, 2),
                 'barcode_url' => asset('storage/' . $barcodePath),
             ], 201);
         } catch (\Exception $e) {
@@ -118,93 +164,7 @@ class OrderController extends Controller
             ], 500);
         }
     }
-    public function applyPromoToOrder1(Request $request, $order_id)
-    {
-        $request->validate([
-            'promo_code' => 'required|string',
-        ]);
-        $user = auth()->user();
 
-
-        $order = Order::where('id', $request->order_id)
-            ->where('user_id', $user->id)
-            ->first();
-
-        if (!$order) {
-            return response()->json(['message' => 'الطلب غير موجود.'], 404);
-        }
-
-        if (!in_array($order->status, ['preparing', 'pending'])) {
-            return response()->json([
-                'message' => 'لا يمكن تطبيق كود الخصم إلا على الطلبات في مرحلة التحضير أو الانتظار.',
-            ], 400);
-        }
-
-        if ($order->promo_code_id) {
-            return response()->json(['message' => 'تم تطبيق كود خصم مسبقًا على هذا الطلب.'], 400);
-        }
-
-        $promo = PromoCode::where('code', $request->promo_code)
-            ->where('is_active', true)
-            ->where('expiry_date', '>', now())
-            ->first();
-
-        if (!$promo) {
-            return response()->json(['message' => 'كود الخصم غير صالح أو منتهي.'], 404);
-        }
-
-        if ($order->total_price < $promo->min_order_value) {
-            return response()->json(['message' => 'قيمة الطلب أقل من الحد الأدنى لهذا الكود.'], 422);
-        }
-
-        $alreadyUsed = DB::table('user_promo_codes')
-            ->where('user_id', $user->id)
-            ->where('promo_code_id', $promo->id)
-            ->where('is_used', true)
-            ->exists();
-
-        if ($alreadyUsed) {
-            return response()->json(['message' => 'لقد استخدمت هذا الكود مسبقًا.'], 403);
-        }
-
-        $discount = 0;
-        if ($promo->discount_type === 'percentage') {
-            $discount = $order->total_price * ($promo->discount_value / 100);
-        } elseif ($promo->discount_type === 'fixed') {
-            $discount = $promo->discount_value;
-        }
-
-        $finalPrice = $order->total_price - $discount;
-
-        $order->update([
-            'total_price' => $finalPrice,
-            'promo_code_id' => $promo->id,
-        ]);
-        DB::table('promo_codes')
-            ->where('id', $promo->id)
-            ->decrement('max_uses');
-
-        DB::table('user_promo_codes')->insert([
-            'user_id' => $user->id,
-            'order_id' => $order_id,
-            'promo_code_id' => $promo->id,
-            'fcm_token' => $user->fcm_token,
-            'is_used' => true,
-            'used_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return response()->json([
-            'message' => 'تم تطبيق كود الخصم بنجاح.',
-            'order_id' => $order->id,
-            'original_price' => round($order->total_price + $discount, 2),
-            'discount_type' => $promo->discount_type,
-            'discount_value' => $promo->discount_value,
-            'discount' => round($discount, 2),
-            'final_price' => round($finalPrice, 2),
-        ], 201);
-    }
 
     public function updateOrder(UpdateOrderRequest $request, $order_id)
     {
@@ -446,5 +406,103 @@ class OrderController extends Controller
         return response()->json([
             'orders' => $result,
         ], 200);
+    }
+
+    public function getCompletedOrdersForUser()
+    {
+        $user = auth()->user();
+
+        $orders = Order::with(['restaurant.user', 'orderItems.meal.images'])
+            ->where('user_id', $user->id)
+            ->where('status', 'delivered')
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'orders' => $orders->map(function ($order) use ($user) {
+                $promoUsed = DB::table('user_promo_codes')
+                    ->where('user_id', $user->id)
+                    ->where('order_id', $order->id)
+                    ->where('is_used', true)
+                    ->exists();
+
+                $promoUsed1 = DB::table('user_promo_codes')
+                    ->where('user_id', $user->id)
+                    ->where('order_id', $order->id)
+                    ->where('is_used', true)
+                    ->get();
+
+                return [
+                    'order_id' => $order->id,
+                    'restaurant_name' => optional($order->restaurant->user)->fullname,
+                    'total_price' => $order->total_price,
+                    'delivery_address' => $order->delivery_address,
+                    'delivered_at' => $order->updated_at,
+                    'promo_used' => $promoUsed,
+                    'promo_Details' => $promoUsed1,
+                    'meals' => $order->orderItems->map(function ($item) {
+                        return [
+                            'name' => optional($item->meal)->name,
+                            'quantity' => $item->quantity,
+                            'price' => $item->price,
+                            'images' => optional($item->meal->images)->map(function ($img) {
+                                return asset('storage/' . $img->image);
+                            }),
+                        ];
+                    }),
+                ];
+            }),
+        ]);
+    }
+
+    public function getMealsByCity($city)
+    {
+        $areaIds = Area::where('city', $city)->pluck('id');
+
+        if ($areaIds->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'لا توجد منطقة بهذا الاسم او التطبيق لا يخدم المنطقة',
+            ], 404);
+        }
+
+        $restaurantUsers = User::where('user_type', 'restaurant')
+            ->whereHas('areas', function ($query) use ($areaIds) {
+                $query->whereIn('area_id', $areaIds);
+            })
+            ->pluck('id');
+
+        $meals = Meal::whereHas('restaurant', function ($q) use ($restaurantUsers) {
+            $q->whereIn('user_id', $restaurantUsers);
+        })
+            ->with(['images', 'restaurant.user'])
+            ->get();
+
+        $formattedMeals = $meals->map(function ($meal) {
+            return [
+                'meal_id' => $meal->id,
+                'name' => $meal->name,
+                'price' => $meal->original_price,
+                'is_available' => $meal->is_available,
+                'restaurant_name' => $meal->restaurant->user->fullname ?? 'غير معروف',
+                'resturant_Details' => $meal->restaurant,
+                'images' => $meal->images->map(function ($img) {
+                    return asset('storage/' . $img->image);
+                }),
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'city' => $city,
+            'meals' => $formattedMeals,
+        ]);
+    }
+
+    public function getAllMeals()
+    {
+        $meals = Meal::with('restaurant')->get()->all();
+        return response()->json($meals, 200);
     }
 }

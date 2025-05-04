@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('restaurants', function (Blueprint $table) {
             $table->id();
-
             $table->foreignId('user_id')->unique()->constrained()->onDelete('cascade');
             $table->string('image', 255)->nullable();
             $table->text('description')->nullable();

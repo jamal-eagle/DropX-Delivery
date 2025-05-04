@@ -44,31 +44,35 @@ Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCus
     Route::post('addAddress', [AreaController::class, 'addAddress']);
     Route::get('/desplayMyAddresses', [AreaController::class, 'getMyAddresses']);
     Route::delete('/deleteAddresses/{areaId}', [AreaController::class, 'deleteAddress']);
-    Route::post('addOrder', [OrderController::class, 'createOrder']);
+    Route::post('addOrder', [OrderController::class, 'createOrderWithPromo']);
     Route::post('/orders/{order_id}/apply-promo', [OrderController::class, 'applyPromoToOrder1']);
     Route::put('/updateOrders/{order_id}', [OrderController::class, 'updateOrder']);
     Route::put('updateOrAddMealToOrder/{orderId}', [OrderController::class, 'updateOrAddMealToOrder']);
     Route::delete('deleteMealsFromOrder/{orderId}', [OrderController::class, 'deleteOrderMeals']);
     Route::get('/getMyAllOrder', [OrderController::class, 'getMyOrders']);
+    Route::get('/getCompletedOrdersForUser', [OrderController::class, 'getCompletedOrdersForUser']);
+    Route::get('/getMealsByCity/{city}', [OrderController::class, 'getMealsByCity']);
+    Route::get('/getAllMealsOnMyAppletion', [OrderController::class, 'getAllMeals']);
 });
 
-
-Route::prefix('resturant')->middleware(['auth:sanctum',CheckResturant::class])->group(function () {
-    Route::get('/getPreparingOrders',[ResturantController::class,'getPreparingOrders']);
-    Route::get('/getNewOrders',[ResturantController::class,'getPendingOrders']);
-    Route::put('/acceptOrder/{orderId}',[ResturantController::class,'acceptOrder']);
-    Route::put('/rejectOrder/{orderId}',[ResturantController::class,'rejectOrder']);
-    Route::get('/getOrderDetails/{orderId}',[ResturantController::class,'getOrderDetails']);
-    Route::put('/updateWorkingHours',[ResturantController::class,'updateWorkingHours']);
-    Route::put('/updateResturantStatusClosed',[ResturantController::class,'updateResturantStatusClose']);
-    Route::put('/updateResturantStatusOpened',[ResturantController::class,'updateResturantStatusOpen']);
-    Route::get('/desplayMyMeals',[ResturantController::class,'desplayMyMeals']);
-    Route::put('/updateMealStatus/{mealId}',[ResturantController::class,'toggleMealAvailability']);
-    Route::get('/getProfileResturant',[ResturantController::class,'getResturantProfile']);
+Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])->group(function () {
+    Route::get('/getPreparingOrders', [ResturantController::class, 'getPreparingOrders']);
+    Route::get('/getNewOrders', [ResturantController::class, 'getPendingOrders']);
+    Route::put('/acceptOrder/{orderId}', [ResturantController::class, 'acceptOrder']);
+    Route::put('/rejectOrder/{orderId}', [ResturantController::class, 'rejectOrder']);
+    Route::get('/getOrderDetails/{orderId}', [ResturantController::class, 'getOrderDetails']);
+    Route::put('/updateWorkingHours', [ResturantController::class, 'updateWorkingHours']);
+    Route::put('/updateResturantStatusClosed', [ResturantController::class, 'updateResturantStatusClose']);
+    Route::put('/updateResturantStatusOpened', [ResturantController::class, 'updateResturantStatusOpen']);
+    Route::get('/desplayMyMeals', [ResturantController::class, 'desplayMyMeals']);
+    Route::put('/updateMealStatus/{mealId}', [ResturantController::class, 'toggleMealAvailability']);
+    Route::get('/getProfileResturant', [ResturantController::class, 'getResturantProfile']);
 
 });
 
+Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {
 
+});
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
     Route::post('/store-meal', [MealController::class, 'storeMeal']);
