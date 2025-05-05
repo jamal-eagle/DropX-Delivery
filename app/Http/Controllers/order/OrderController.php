@@ -502,7 +502,7 @@ class OrderController extends Controller
 
     public function getAllMeals()
     {
-        $meals = Meal::with('restaurant')->get()->all();
+        $meals = Meal::with('restaurant.user')->get()->all();
         return response()->json($meals, 200);
     }
 }

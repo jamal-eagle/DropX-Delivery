@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\area\AreaController;
 use App\Http\Controllers\auth\AuthController;
@@ -67,15 +68,14 @@ Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])-
     Route::get('/desplayMyMeals', [ResturantController::class, 'desplayMyMeals']);
     Route::put('/updateMealStatus/{mealId}', [ResturantController::class, 'toggleMealAvailability']);
     Route::get('/getProfileResturant', [ResturantController::class, 'getResturantProfile']);
-
 });
 
-Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {
-
-});
+Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {});
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
     Route::post('/store-meal', [MealController::class, 'storeMeal']);
     Route::post('/store-ads', [AdvertisementController::class, 'storeAds']);
     Route::post('/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
+    Route::post('/storeDriver', [AdminController::class, 'storeDriver']);
+    Route::put('/resetDriverPassword', [AdminController::class, 'resetDriverPassword']);
 });

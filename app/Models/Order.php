@@ -45,6 +45,11 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function rejections()
+{
+    return $this->hasMany(DriverOrderRejection::class);
+}
+
 
 
 

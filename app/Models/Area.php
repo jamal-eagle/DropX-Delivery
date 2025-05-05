@@ -15,7 +15,12 @@ class Area extends Model
 
     public function users()
     {
-    return $this->belongsToMany(User::class, 'area_user')
-                ->withTimestamps();
+        return $this->belongsToMany(User::class, 'area_user')
+            ->withTimestamps();
+    }
+
+    public function driverTurns()
+    {
+        return $this->hasMany(DriverAreaTurn::class);
     }
 }
