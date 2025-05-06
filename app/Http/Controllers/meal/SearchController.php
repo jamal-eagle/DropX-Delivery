@@ -11,31 +11,39 @@ use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
-public function getRestaurantsByCity($city)
+    public function getRestaurantsByCity($city)
     {
         $restaurants = User::whereHas('areas', function ($query) use ($city) {
             $query->where('city', $city);
         })
             ->whereHas('restaurant')
             ->with([
-                'restaurant.categories.meals',
+                'restaurant.categories.meals.images',
             ])
             ->get();
 
         $formattedRestaurants = $restaurants->map(function ($user) {
             return [
                 'user_info' => [
-                    $user
+                    'name' => $user->fullname,
+                    'phone' => $user->phone,
                 ],
                 'restaurant_info' => [
-                    'description' => $user->restaurant
+                    'description' => $user->restaurant->description,
+                    'status' => $user->restaurant->status,
                 ],
                 'categories' => $user->restaurant->categories->map(function ($category) {
                     return [
                         'category_name' => $category->name,
                         'meals' => $category->meals->map(function ($meal) {
                             return [
-                                $meal
+                                'meal_id' => $meal->id,
+                                'name' => $meal->name,
+                                'price' => $meal->original_price,
+                                'is_available' => $meal->is_available,
+                                'images' => $meal->images->map(function ($img) {
+                                    return asset('storage/' . $img->image);
+                                }),
                             ];
                         }),
                     ];
@@ -49,6 +57,7 @@ public function getRestaurantsByCity($city)
             'restaurants' => $formattedRestaurants,
         ], 200);
     }
+
 
 
 public function searchByNameResturant(Request $request, $city)

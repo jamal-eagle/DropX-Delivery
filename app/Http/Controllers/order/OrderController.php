@@ -502,7 +502,41 @@ class OrderController extends Controller
 
     public function getAllMeals()
     {
-        $meals = Meal::with('restaurant.user')->get()->all();
-        return response()->json($meals, 200);
+        $meals = Meal::with([
+            'images',
+            'restaurant.user'
+        ])->get();
+
+        $formattedMeals = $meals->map(function ($meal) {
+            $restaurant = $meal->restaurant;
+            $user = $restaurant?->user;
+
+            return [
+                'meal_id' => $meal->id,
+                'name' => $meal->name,
+                'price' => $meal->original_price,
+                'is_available' => $meal->is_available,
+                'images' => $meal->images->map(function ($img) {
+                    return asset('storage/' . $img->image);
+                }),
+                'restaurant' => [
+                    'restaurant_id' => $restaurant->id ?? null,
+                    'description' => $restaurant->description ?? null,
+                    'working_hours_start' => $restaurant->working_hours_start ?? null,
+                    'working_hours_end' => $restaurant->working_hours_end ?? null,
+                    'status' => $restaurant->status ?? null,
+                ],
+                'owner_info' => [
+                    'name' => $user->fullname ?? null,
+                    'phone' => $user->phone ?? null,
+                    'location_text' => $user->location_text ?? null,
+                ],
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'meals' => $formattedMeals
+        ], 200);
     }
 }

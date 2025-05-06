@@ -70,7 +70,9 @@ Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])-
     Route::get('/getProfileResturant', [ResturantController::class, 'getResturantProfile']);
 });
 
-Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {});
+Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {
+    Route::post('/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
+});
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
     Route::post('/store-meal', [MealController::class, 'storeMeal']);
