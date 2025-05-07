@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\area\AreaController;
 use App\Http\Controllers\auth\AuthController;
+use App\Http\Controllers\Driver\DriverController;
 use App\Http\Controllers\meal\MealController;
 use App\Http\Controllers\meal\SearchController;
 use App\Http\Controllers\order\OrderController;
@@ -70,8 +71,9 @@ Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])-
     Route::get('/getProfileResturant', [ResturantController::class, 'getResturantProfile']);
 });
 
-Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {
-    Route::post('/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
+Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {
+    Route::get('desplayAvailableOrder/prepring', [DriverController::class, 'availableOrders']);
+    Route::get('orders/completed', [DriverController::class, 'completedOrders']);
 });
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {

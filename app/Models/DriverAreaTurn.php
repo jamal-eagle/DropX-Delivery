@@ -9,7 +9,8 @@ class DriverAreaTurn extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'driver_id', 'area_id', 'turn_order', 'is_next', 'is_active', 'last_assigned_at'
+        'driver_id', 'area_id', 'turn_order', 'is_next',
+        'is_active', 'last_assigned_at','turn_assigned_at'
     ];
 
     public function driver()

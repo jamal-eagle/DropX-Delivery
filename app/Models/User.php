@@ -22,6 +22,7 @@ class User extends Authenticatable
         'location_text',
         'latitude',
         'longitude',
+        'user_type',
         'is_active',
         'fcm_token',
     ];

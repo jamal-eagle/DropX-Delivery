@@ -67,6 +67,7 @@ class AdminController extends Controller
 
             return response()->json([
                 'message' => '✅ تم إنشاء السائق بنجاح.',
+                'user' =>$user,
                 'driver' => $driver,
             ], 201);
         } catch (\Exception $e) {
