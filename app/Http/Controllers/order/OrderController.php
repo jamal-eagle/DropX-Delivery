@@ -399,7 +399,7 @@ class OrderController extends Controller
                         'quantity' => $item->quantity,
                     ];
                 }),
-                'created_at' => $order->created_at->toDateTimeString(),
+                'created_at' => $order->created_at,
             ];
         });
 

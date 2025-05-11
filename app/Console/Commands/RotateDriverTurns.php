@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\DriverAreaTurn;
+use App\Models\Order;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 
@@ -17,7 +18,6 @@ class RotateDriverTurns extends Command
     {
         $timeoutMinutes = 5;
 
-        // 1. جلب السائقين الذين لديهم الدور وتجاوزوا المهلة
         $expiredTurns = DriverAreaTurn::where('is_next', true)
             ->whereNotNull('turn_assigned_at')
             ->where('turn_assigned_at', '<=', Carbon::now()->subMinutes($timeoutMinutes))
@@ -26,22 +26,25 @@ class RotateDriverTurns extends Command
         foreach ($expiredTurns as $currentTurn) {
             $areaId = $currentTurn->area_id;
 
-            // 2. البحث عن السائق التالي بالدور
-            $nextTurn = DriverAreaTurn::where('area_id', $areaId)
+            $candidates = DriverAreaTurn::where('area_id', $areaId)
                 ->where('is_active', true)
-                ->where('turn_order', '>', $currentTurn->turn_order)
+                ->where('id', '!=', $currentTurn->id)
                 ->orderBy('turn_order')
-                ->first();
+                ->get();
 
-            // 3. في حال لم يوجد سائق لاحق، نرجع لأول سائق (دور دائري)
-            if (! $nextTurn) {
-                $nextTurn = DriverAreaTurn::where('area_id', $areaId)
-                    ->where('is_active', true)
-                    ->orderBy('turn_order')
-                    ->first();
+            $nextTurn = null;
+
+            foreach ($candidates as $candidate) {
+                $hasActiveOrder = Order::where('driver_id', $candidate->driver_id)
+                    ->where('status', 'on_delivery')
+                    ->exists();
+
+                if (! $hasActiveOrder) {
+                    $nextTurn = $candidate;
+                    break;
+                }
             }
 
-            // 4. تحديث الدور
             $currentTurn->update([
                 'is_next' => false,
                 'turn_assigned_at' => null,
@@ -52,7 +55,15 @@ class RotateDriverTurns extends Command
                     'is_next' => true,
                     'turn_assigned_at' => now(),
                 ]);
-                $this->info("تم تمرير الدور من سائق ID {$currentTurn->driver_id} إلى {$nextTurn->driver_id} في المنطقة {$areaId}");
+
+                $this->info("✅ تم تمرير الدور من سائق ID {$currentTurn->driver_id} إلى {$nextTurn->driver_id} في المنطقة {$areaId}");
+            } else {
+                $currentTurn->update([
+                    'is_next' => true,
+                    'turn_assigned_at' => now(),
+                ]);
+
+                $this->info("⚠️ لم يوجد سائق متاح، تم إبقاء الدور عند السائق ID {$currentTurn->driver_id} في المنطقة {$areaId}");
             }
         }
 
