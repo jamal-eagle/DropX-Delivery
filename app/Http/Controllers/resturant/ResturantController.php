@@ -253,9 +253,10 @@ class ResturantController extends Controller
     }
 
 
-    public function toggleMealAvailability($mealId)
+    public function toggleMealAvailability(Request $request, $mealId)
     {
         $restaurant = Auth::user()->restaurant;
+
         if (!$restaurant) {
             return response()->json(['message' => 'لا تملك صلاحيات الوصول'], 403);
         }
@@ -271,20 +272,28 @@ class ResturantController extends Controller
             ], 404);
         }
 
-
         $meal->is_available = !$meal->is_available;
+
+        if ($request->has('new_price')) {
+            $validated = $request->validate([
+                'new_price' => 'numeric|min:0',
+            ]);
+            $meal->original_price = $validated['new_price'];
+        }
         $meal->save();
 
         return response()->json([
             'status' => true,
-            'message' => 'تم تحديث حالة الوجبة بنجاح.',
+            'message' => 'تم تحديث حالة الوجبة' . ($request->has('new_price') ? ' والسعر' : '') . ' بنجاح.',
             'meal' => [
                 'id' => $meal->id,
                 'name' => $meal->name,
                 'is_available' => $meal->is_available ? 'متاح' : 'غير متاح',
+                'original_price' => $meal->original_price,
             ],
         ], 200);
     }
+
 
     public function getResturantProfile()
     {
