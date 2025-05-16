@@ -14,57 +14,57 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
     public function register(RegisterRequest $request)
-{
-    $user = User::create([
-        'fullname'   => $request->fullname,
-        'phone'      => $request->phone,
-        'password'   => Hash::make($request->password),
-        //'fcm_token'  => $request->fcm_token,
-    ]);
+    {
+        $user = User::create([
+            'fullname'   => $request->fullname,
+            'phone'      => $request->phone,
+            'password'   => Hash::make($request->password),
+            //'fcm_token'  => $request->fcm_token,
+        ]);
 
-    $user->areas()->attach($request->area_id);
-
-
-    $token = $user->createToken('auth_token')->plainTextToken;
-
-    return response()->json([
-        'user'    => $user,
-        'message' => 'تم انشاء الحساب بنجاح',
-        'token'   => $token,
-
-    ],201);
-}
+        $user->areas()->attach($request->area_id);
 
 
-public function login(LoginRequest $request)
-{
-    $user = User::where('phone', $request->phone)->first();
-    if (!Auth::attempt($request->only('phone','password'))) {
+        $token = $user->createToken('auth_token')->plainTextToken;
+
         return response()->json([
-            'status' => false,
-            'message' => 'رقم الهاتف أو كلمة المرور غير صحيحة.'
-        ], 401);
+            'user'    => $user,
+            'message' => 'تم انشاء الحساب بنجاح',
+            'token'   => $token,
+
+        ], 201);
     }
 
-    $user = User::where('phone',$request->phone)->FirstOrFail();
-    $token = $user->createToken('auth_token')->plainTextToken;
-    return response()->json([
-        'user' => $user,
-        'message' => 'تم تسجيل الدخول بنجاح',
-        'token' => $token,
-    ],200);
-}
 
-public function logout(Request $request)
-{
-    $request->user()->currentAccessToken()->delete();
-    return response()->json([
-        'status' => true,
-        'message' => 'تم تسجيل الخروج بنجاح',
-    ],204);
-}
+    public function login(LoginRequest $request)
+    {
+        $user = User::where('phone', $request->phone)->first();
+        if (!Auth::attempt($request->only('phone', 'password'))) {
+            return response()->json([
+                'status' => false,
+                'message' => 'رقم الهاتف أو كلمة المرور غير صحيحة.'
+            ], 401);
+        }
 
-public function index()
+        $user = User::where('phone', $request->phone)->FirstOrFail();
+        $token = $user->createToken('auth_token')->plainTextToken;
+        return response()->json([
+            'user' => $user,
+            'message' => 'تم تسجيل الدخول بنجاح',
+            'token' => $token,
+        ], 200);
+    }
+
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+        return response()->json([
+            'status' => true,
+            'message' => 'تم تسجيل الخروج بنجاح',
+        ], 204);
+    }
+
+    public function index()
     {
         $areas = Area::select('id', 'city', 'neighborhood')->get();
 
@@ -72,20 +72,20 @@ public function index()
             'status' => true,
             'message' => 'قائمة المناطق',
             'data' => $areas
-        ],200);
+        ], 200);
     }
 
-public function userInfo()
+    public function userInfo()
     {
         $user = auth()->user();
         $userWithArea = $user->areas;
         return response()->json([
-            'user'=>$user ,
-            'area'=>$userWithArea
-        ],200);
+            'user' => $user,
+            'area' => $userWithArea
+        ], 200);
     }
 
-public function updateUserInfo(Request $request)
+    public function updateUserInfo(Request $request)
     {
         $request->validate([
             'fullname' => 'nullable|string|max:75',
@@ -126,9 +126,6 @@ public function updateUserInfo(Request $request)
         return response()->json([
             'message' => 'تم تحديث بيانات المستخدم بنجاح.',
             'user' => $user->load('areas'),
-        ],201);
+        ], 201);
     }
-
-
-
 }

@@ -74,12 +74,16 @@ Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])-
 Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {
     Route::get('desplayAvailableOrder/prepring', [DriverController::class, 'availableOrders']);
     Route::get('orders/completed', [DriverController::class, 'completedOrders']);
+    Route::get('orders/Notcompleted', [DriverController::class, 'orderforrdivernotcomplete']);
+    Route::put('orders/acceptOrder/{order_id}', [DriverController::class, 'acceptOrder']);
+    Route::post('orders/rejectOrder/{order_id}', [DriverController::class, 'rejectOrder']);
+    Route::post('orders/getOrderDetails/{order_id}', [DriverController::class, 'getOrderDetails']);
 });
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
-    Route::post('/store-meal', [MealController::class, 'storeMeal']);
-    Route::post('/store-ads', [AdvertisementController::class, 'storeAds']);
-    Route::post('/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
-    Route::post('/storeDriver', [AdminController::class, 'storeDriver']);
-    Route::put('/resetDriverPassword', [AdminController::class, 'resetDriverPassword']);
+    Route::post('/meal/store-meal', [MealController::class, 'storeMeal']);
+    Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']);
+    Route::post('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
+    Route::post('/driver/storeDriver', [AdminController::class, 'storeDriver']);
+    Route::put('/driver/resetDriverPassword', [AdminController::class, 'resetDriverPassword']);
 });

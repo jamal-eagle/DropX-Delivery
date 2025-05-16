@@ -11,10 +11,12 @@ class MealController extends Controller
 {
 public function storeMeal(MealRequest $request)
     {
+
         $meal = Meal::create([
             'category_id' => $request->category_id,
             'name' => $request->name,
             'original_price' => $request->original_price,
+            'restaurant_id'=>$request->restaurant_id
         ]);
 
 

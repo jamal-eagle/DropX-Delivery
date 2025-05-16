@@ -23,12 +23,13 @@ class MealRequest extends FormRequest
     {
         return [
             'category_id' => 'required|exists:categories,id',
+            'restaurant_id' => 'required|exists:restaurants,id',
             'name' => 'required|string|max:100',
             'original_price' => 'required|numeric',
             'images' => 'required|array',
             'images.*' => 'required|image|mimes:jpeg,png,jpg|max:2048',
-            'descriptions' => 'nullable'| 'array',
-            'descriptions.*' => 'nullable'| 'string',
+            'descriptions' => 'nullable|array',
+            'descriptions.*' => 'nullable|string',
         ];
     }
 }

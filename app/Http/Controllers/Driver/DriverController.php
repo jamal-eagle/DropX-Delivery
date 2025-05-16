@@ -177,11 +177,9 @@ class DriverController extends Controller
         ]);
     }
 
-    public function rejectOrder(Request $request)
+    public function rejectOrder($order_id)
     {
-        $request->validate([
-            'order_id' => 'required|exists:orders,id',
-        ]);
+
 
         $user = Auth::user();
 
@@ -192,7 +190,7 @@ class DriverController extends Controller
         $driver = $user->driver;
 
         // ✅ جلب الطلب والتحقق من حالته
-        $order = Order::where('id', $request->order_id)
+        $order = Order::where('id', $order_id)
             ->where('status', 'preparing')
             ->where('is_accepted', true)
             ->whereNull('driver_id')
@@ -262,13 +260,11 @@ class DriverController extends Controller
         ]);
     }
 
-    public function getOrderDetails($id)
+    public function getOrderDetails($order_id)
     {
         $user = Auth::user();
 
-        // يمكنك هنا تقييد الوصول: مثلاً فقط السائق أو صاحب الطلب يشاهد التفاصيل (اختياري)
-
-        $order = Order::where('id', $id)
+        $order = Order::where('id', $order_id)
             ->with([
                 'user',                  // صاحب الطلب
                 'restaurant',           // المطعم

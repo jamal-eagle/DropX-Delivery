@@ -29,7 +29,7 @@ class Driver extends Model
     {
         return $this->hasMany(Order::class);
     }
-    
+
     public function areaTurns()
     {
         return $this->hasMany(DriverAreaTurn::class);
@@ -39,5 +39,4 @@ class Driver extends Model
     {
         return $this->hasMany(DriverOrderRejection::class);
     }
-
 }

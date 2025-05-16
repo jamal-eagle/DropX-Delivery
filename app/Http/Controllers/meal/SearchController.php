@@ -60,7 +60,7 @@ class SearchController extends Controller
 
 
 
-public function searchByNameResturant(Request $request, $city)
+    public function searchByNameResturant(Request $request, $city)
     {
         $user = auth()->user();
 

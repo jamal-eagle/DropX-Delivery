@@ -105,7 +105,6 @@ class OrderController extends Controller
             $barcodePath = 'barcodes/' . $barcodeText . '.png';
             $result = Builder::create()->data($barcodeText)->size(300)->margin(10)->build();
             Storage::disk('public')->put($barcodePath, $result->getString());
-
             $order = Order::create([
                 'user_id' => $user->id,
                 'restaurant_id' => $restaurantId,
@@ -115,7 +114,7 @@ class OrderController extends Controller
                 'total_price' => $totalPrice,
                 'delivery_address' => "{$address->city} - {$address->neighborhood}",
                 'notes' => $request->notes,
-                'delivery_fee' => null,
+                'delivery_fee' => 10000,
                 'barcode' => $barcodePath,
             ]);
 
@@ -151,7 +150,7 @@ class OrderController extends Controller
                 'order_Details' => $order,
                 'original_price' => round($totalPrice + $discount, 2),
                 'discount' => round($discount, 2),
-                'final_price' => round($totalPrice, 2),
+                'final_price' => round($totalPrice, 2) + $order->delivery_fee,
                 'barcode_url' => asset('storage/' . $barcodePath),
             ], 201);
         } catch (\Exception $e) {
@@ -378,6 +377,8 @@ class OrderController extends Controller
             ->with([
                 'restaurant.user:id,fullname',
                 'orderItems.meal:id,name,original_price',
+                'orderItems.meal.images:id,meal_id,image',
+
             ])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -388,7 +389,9 @@ class OrderController extends Controller
                 'status' => $order->status,
                 'is_accepted' => $order->is_accepted,
                 'total_price' => $order->total_price,
+                'delivery_fee' => $order->delivery_fee,
                 'delivery_address' => $order->delivery_address,
+                'final_account' => $order->delivery_fee + $order->total_price,
                 'notes' => $order->notes,
                 'barcode_url' => asset('storage/' . $order->barcode),
                 'restaurant_name' => $order->restaurant->user->fullname ?? null,
@@ -397,6 +400,9 @@ class OrderController extends Controller
                         'meal_name' => $item->meal->name ?? 'غير متوفرة',
                         'price' => $item->price,
                         'quantity' => $item->quantity,
+                        'images' => $item->meal->images->map(function ($image) {
+                            return asset('storage/' . $image->image);
+                        }),
                     ];
                 }),
                 'created_at' => $order->created_at,
@@ -437,6 +443,8 @@ class OrderController extends Controller
                     'order_id' => $order->id,
                     'restaurant_name' => optional($order->restaurant->user)->fullname,
                     'total_price' => $order->total_price,
+                    'delifery_fee' => $order->delivery_fee,
+                    'final_price' => $order->total_price  + $order->delivery_fee,
                     'delivery_address' => $order->delivery_address,
                     'delivered_at' => $order->updated_at,
                     'promo_used' => $promoUsed,
