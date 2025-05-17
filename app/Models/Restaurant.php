@@ -23,6 +23,16 @@ class Restaurant extends Model
     {
         return $this->belongsTo(User::class);
     }
+    public function commission()
+    {
+        return $this->hasOne(RestaurantCommission::class);
+    }
+    public function dailyReports()
+    {
+        return $this->hasMany(RestaurantDailyReport::class);
+    }
+
+
 
     public function categories()
     {
@@ -42,5 +52,4 @@ class Restaurant extends Model
     {
         return $this->hasMany(Meal::class);
     }
-
 }

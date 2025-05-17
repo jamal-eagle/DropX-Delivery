@@ -8,6 +8,7 @@ use App\Http\Controllers\Driver\DriverController;
 use App\Http\Controllers\meal\MealController;
 use App\Http\Controllers\meal\SearchController;
 use App\Http\Controllers\order\OrderController;
+use App\Http\Controllers\RestaurantCommissionController;
 use App\Http\Controllers\resturant\ResturantController;
 use App\Http\Middleware\CheckResturant;
 use Illuminate\Http\Request;
@@ -28,7 +29,6 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
-
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -86,4 +86,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::post('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
     Route::post('/driver/storeDriver', [AdminController::class, 'storeDriver']);
     Route::put('/driver/resetDriverPassword', [AdminController::class, 'resetDriverPassword']);
+    Route::put('/restaurant/commission', [RestaurantCommissionController::class, 'updateCommission']);
+
 });
