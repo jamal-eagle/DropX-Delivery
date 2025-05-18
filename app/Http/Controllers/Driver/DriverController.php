@@ -23,25 +23,27 @@ class DriverController extends Controller
 
         $driverId = $user->driver->id;
 
-        $cityNames = $user->areas()->pluck('city')->unique();
+        $cityNames = $user->areas()->pluck('city')->unique()->values()->toArray();
 
-        $rejectedOrderIds = DriverOrderRejection::where('driver_id', $driverId)->pluck('order_id')->toArray();
+
+        $rejectedOrderIds = DriverOrderRejection::where('driver_id', $driverId)
+            ->pluck('order_id')
+            ->toArray();
+
+        $placeholders = implode(',', array_fill(0, count($cityNames), '?'));
 
         $orders = Order::where('status', 'preparing')
             ->where('is_accepted', true)
             ->whereNull('driver_id')
             ->whereNotIn('id', $rejectedOrderIds)
-            ->whereHas('user.areas', function ($query) use ($cityNames) {
-                $query->whereIn('city', $cityNames);
-            })
-            ->with(['user', 'restaurant'])
+            ->whereRaw("TRIM(SUBSTRING_INDEX(delivery_address, '-', 1)) IN ($placeholders)", $cityNames)
+            ->with(['user', 'restaurant', 'orderItems'])
             ->get();
 
         return response()->json([
-            'orders' => $orders
-        ]);
+            'orders' => $orders,
+        ], 200);
     }
-
 
     public function completedOrders()
     {
@@ -56,16 +58,16 @@ class DriverController extends Controller
         $orders = Order::where('driver_id', $driverId)
             ->where('status', 'delivered')
             ->with([
-                'user',                // الزبون
-                'restaurant',         // المطعم
-                'orderItems.meal'          // الوجبات داخل الطلب
+                'user',
+                'restaurant',
+                'orderItems.meal'
             ])
             ->orderByDesc('updated_at')
             ->get();
 
         return response()->json([
             'orders' => $orders
-        ]);
+        ], 200);
     }
 
     public function orderforrdivernotcomplete()
@@ -81,9 +83,9 @@ class DriverController extends Controller
         $orders = Order::where('driver_id', $driverId)
             ->whereIn('status', ['preparing', 'on_delivery'])
             ->with([
-                'user',                  // صاحب الطلب
-                'restaurant',           // المطعم
-                'orderItems.meal'       // تفاصيل كل وجبة داخل الطلب
+                'user',
+                'restaurant',
+                'orderItems.meal'
             ])
             ->orderByDesc('updated_at')
             ->get();
@@ -95,8 +97,6 @@ class DriverController extends Controller
 
     public function acceptOrder($order_id)
     {
-
-
         $user = Auth::user();
 
         if ($user->user_type !== 'driver') {
@@ -105,7 +105,6 @@ class DriverController extends Controller
 
         $driver = $user->driver;
 
-        // جلب الطلب والتحقق من أنه متاح للقبول
         $order = Order::where('id', $order_id)
             ->where('status', 'preparing')
             ->where('is_accepted', true)
@@ -116,7 +115,6 @@ class DriverController extends Controller
             return response()->json(['message' => 'الطلب غير متاح للقبول أو تم قبوله مسبقًا'], 404);
         }
 
-        // جلب أسماء المدن التي يعمل فيها السائق
         $cityNames = $user->areas()->pluck('city')->unique()->toArray();
 
         // التأكد أن السائق لديه الدور في نفس المدينة
@@ -132,24 +130,20 @@ class DriverController extends Controller
             return response()->json(['message' => 'ليس لديك الدور حالياً ولا يمكنك قبول الطلب'], 403);
         }
 
-        // ✅ تعيين السائق للطلب (بدون تغيير الحالة)
         $order->driver_id = $driver->id;
         $order->save();
 
-        // ❗ سحب الدور من السائق الحالي
         $hasTurn->update([
             'is_next' => false,
             'turn_assigned_at' => null,
         ]);
 
-        // 🔄 تدوير الدور إلى السائق التالي في نفس المنطقة
         $nextTurn = DriverAreaTurn::where('area_id', $hasTurn->area_id)
             ->where('is_active', true)
             ->where('turn_order', '>', $hasTurn->turn_order)
             ->orderBy('turn_order')
             ->first();
 
-        // إذا لم يوجد سائق بعده، نرجع لأول سائق (دائري)
         if (! $nextTurn) {
             $nextTurn = DriverAreaTurn::where('area_id', $hasTurn->area_id)
                 ->where('is_active', true)
@@ -157,7 +151,6 @@ class DriverController extends Controller
                 ->first();
         }
 
-        // التأكد أن السائق التالي ليس عنده طلب on_delivery
         if ($nextTurn) {
             $hasActiveOrder = Order::where('driver_id', $nextTurn->driver_id)
                 ->where('status', 'on_delivery')
@@ -174,13 +167,11 @@ class DriverController extends Controller
         return response()->json([
             'message' => '✅ تم تعيينك كسائق لهذا الطلب بنجاح.',
             'order_id' => $order->id,
-        ]);
+        ], 200);
     }
 
     public function rejectOrder($order_id)
     {
-
-
         $user = Auth::user();
 
         if ($user->user_type !== 'driver') {
@@ -189,7 +180,6 @@ class DriverController extends Controller
 
         $driver = $user->driver;
 
-        // ✅ جلب الطلب والتحقق من حالته
         $order = Order::where('id', $order_id)
             ->where('status', 'preparing')
             ->where('is_accepted', true)
@@ -200,10 +190,8 @@ class DriverController extends Controller
             return response()->json(['message' => 'الطلب غير متاح للرفض أو تم تعيينه مسبقًا'], 404);
         }
 
-        // ✅ جلب المدن التي يعمل بها السائق
         $cityNames = $user->areas()->pluck('city')->unique()->toArray();
 
-        // ✅ التحقق من أن السائق هو صاحب الدور في نفس المدينة
         $currentTurn = DriverAreaTurn::where('driver_id', $driver->id)
             ->whereHas('area', function ($q) use ($cityNames) {
                 $q->whereIn('city', $cityNames);
@@ -216,19 +204,16 @@ class DriverController extends Controller
             return response()->json(['message' => 'ليس لديك الدور حالياً ولا يمكنك رفض الطلب'], 403);
         }
 
-        // ✅ تسجيل الرفض في جدول driver_order_rejections
         DriverOrderRejection::create([
             'driver_id' => $driver->id,
             'order_id' => $order->id,
         ]);
 
-        // ✅ سحب الدور من السائق الحالي
         $currentTurn->update([
             'is_next' => false,
             'turn_assigned_at' => null,
         ]);
 
-        // ✅ تمرير الدور لسائق آخر (غير مشغول)
         $nextTurn = DriverAreaTurn::where('area_id', $currentTurn->area_id)
             ->where('is_active', true)
             ->where('turn_order', '>', $currentTurn->turn_order)
@@ -257,7 +242,7 @@ class DriverController extends Controller
 
         return response()->json([
             'message' => '✅ تم رفض الطلب وتم تمرير الدور.',
-        ]);
+        ], 200);
     }
 
     public function getOrderDetails($order_id)
@@ -275,9 +260,11 @@ class DriverController extends Controller
         if (! $order) {
             return response()->json(['message' => 'الطلب غير موجود'], 404);
         }
+        $mealsCount = $order->orderItems->sum('quantity');
 
         return response()->json([
-            'order' => $order
-        ]);
+            'mealcount' => $mealsCount,
+            'order' => $order,
+        ], 200);
     }
 }

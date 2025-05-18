@@ -77,7 +77,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckD
     Route::get('orders/Notcompleted', [DriverController::class, 'orderforrdivernotcomplete']);
     Route::put('orders/acceptOrder/{order_id}', [DriverController::class, 'acceptOrder']);
     Route::post('orders/rejectOrder/{order_id}', [DriverController::class, 'rejectOrder']);
-    Route::post('orders/getOrderDetails/{order_id}', [DriverController::class, 'getOrderDetails']);
+    Route::get('orders/getOrderDetails/{order_id}', [DriverController::class, 'getOrderDetails']);
 });
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
@@ -87,5 +87,4 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::post('/driver/storeDriver', [AdminController::class, 'storeDriver']);
     Route::put('/driver/resetDriverPassword', [AdminController::class, 'resetDriverPassword']);
     Route::put('/restaurant/commission', [RestaurantCommissionController::class, 'updateCommission']);
-
 });
