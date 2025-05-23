@@ -16,7 +16,7 @@ class RotateDriverTurns extends Command
 
     public function handle()
     {
-        $timeoutMinutes = 5;
+        $timeoutMinutes = 10;
 
         $expiredTurns = DriverAreaTurn::where('is_next', true)
             ->whereNotNull('turn_assigned_at')

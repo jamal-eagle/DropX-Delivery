@@ -13,7 +13,7 @@ use App\Models\Driver;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes,HasApiTokens;
+    use HasFactory, Notifiable, SoftDeletes, HasApiTokens;
 
     protected $fillable = [
         'fullname',
@@ -25,6 +25,7 @@ class User extends Authenticatable
         'user_type',
         'is_active',
         'fcm_token',
+        'is_verified',
     ];
 
     protected $hidden = [
@@ -42,8 +43,8 @@ class User extends Authenticatable
     protected $casts = [
         'password' => 'hashed',
         'is_active' => 'boolean',
+        'is_verified' => 'boolean',
         'user_type' => 'string',
-        'email_verified_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
 

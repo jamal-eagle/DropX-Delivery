@@ -7,33 +7,124 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\Area;
 use App\Models\User;
+use App\Services\OTPSMSService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+
+    protected function formatPhoneNumberToE164($localPhone)
+    {
+        $localPhone = preg_replace('/\D/', '', $localPhone);
+
+        if (str_starts_with($localPhone, '09')) {
+            return '+963' . substr($localPhone, 1);
+        }
+
+        if (str_starts_with($localPhone, '9') && strlen($localPhone) == 9) {
+            return '+963' . $localPhone;
+        }
+
+        if (str_starts_with($localPhone, '+')) {
+            return $localPhone;
+        }
+
+        return $localPhone;
+    }
+    protected function normalizePhoneForStorage($phone)
+    {
+        $phone = preg_replace('/\D/', '', $phone);
+
+        if (str_starts_with($phone, '9639')) {
+            return '0' . substr($phone, 3);
+        }
+
+        if (str_starts_with($phone, '9') && strlen($phone) === 9) {
+            return '0' . $phone;
+        }
+
+        return $phone;
+    }
+
+
     public function register(RegisterRequest $request)
     {
-        $user = User::create([
-            'fullname'   => $request->fullname,
-            'phone'      => $request->phone,
-            'password'   => Hash::make($request->password),
-            //'fcm_token'  => $request->fcm_token,
+        return DB::transaction(function () use ($request) {
+            $normalizedPhone = $this->normalizePhoneForStorage($request->phone);
+            $user = User::create([
+                'fullname' => $request->fullname,
+                'phone' => $normalizedPhone,
+                'password' => Hash::make($request->password),
+                'is_verified' => false,
+                //'fcm_token'  => $request->fcm_token,
+            ]);
+
+            $user->areas()->attach($request->area_id);
+            $formattedPhone = $this->formatPhoneNumberToE164($user->phone);
+            $otp = rand(100000, 999999);
+            Cache::put("otp_{$user->phone}", $otp, now()->addMinutes(5));
+
+            $sent = (new OTPSMSService())->send($formattedPhone, $otp);
+
+            if (! $sent) {
+                throw new \Exception("فشل في إرسال كود التحقق");
+            }
+
+            return response()->json([
+                'message' => 'تم إنشاء الحساب. الرجاء إدخال رمز التحقق المرسل إلى هاتفك.',
+                'user_id' => $user->id
+            ], 201);
+        });
+    }
+
+
+    public function verifyOTP(Request $request)
+    {
+        $request->validate([
+            'phone' => 'required|string',
+            'otp' => 'required|numeric',
         ]);
 
-        $user->areas()->attach($request->area_id);
+        $phone = $request->phone;
+        $attemptKey = "otp_attempts_{$phone}";
+        $attempts = Cache::get($attemptKey, 0);
 
+        if ($attempts >= 3) {
+            return response()->json(['message' => 'تم تجاوز عدد المحاولات المسموح بها'], 403);
+        }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $cachedOTP = Cache::get("otp_{$phone}");
 
-        return response()->json([
-            'user'    => $user,
-            'message' => 'تم انشاء الحساب بنجاح',
-            'token'   => $token,
+        if ($cachedOTP && $cachedOTP == $request->otp) {
+            $user = \App\Models\User::where('phone', $phone)->first();
 
-        ], 201);
+            if (!$user) {
+                return response()->json(['message' => 'المستخدم غير موجود'], 404);
+            }
+
+            $user->update(['is_verified' => true]);
+            Cache::forget("otp_{$phone}");
+            Cache::forget($attemptKey); // تصفير المحاولات بعد نجاح التحقق
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'message' => 'تم التحقق من الحساب بنجاح',
+                'token' => $token,
+                'user' => $user
+            ]);
+        }
+
+        // زيادة المحاولة إذا كانت خاطئة
+        Cache::put($attemptKey, $attempts + 1, now()->addMinutes(10));
+
+        return response()->json(['message' => 'رمز غير صحيح. تبقّى ' . (2 - $attempts) . ' محاولات.'], 401);
     }
+
 
 
     public function login(LoginRequest $request)
@@ -44,6 +135,13 @@ class AuthController extends Controller
                 'status' => false,
                 'message' => 'رقم الهاتف أو كلمة المرور غير صحيحة.'
             ], 401);
+        }
+
+        if (! $user->is_verified) {
+            return response()->json([
+                'status' => false,
+                'message' => 'هذا الحساب لم يتم التحقق منه يرجى تاكيد الحساب '
+            ]);
         }
 
         $user = User::where('phone', $request->phone)->FirstOrFail();

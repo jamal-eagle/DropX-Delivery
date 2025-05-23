@@ -31,4 +31,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'hypersender_sms' => [
+        'token' => env('HYPERSENDER_SMS_API_TOKEN'),
+        'device_id' => env('HYPERSENDER_DEVICE_ID'),
+    ],
+
 ];
