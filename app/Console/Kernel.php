@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Jobs\GenerateDailyRestaurantReports;
+use App\Jobs\GenerateMonthlyRestaurantReports;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -16,6 +17,7 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('rotate:driver-turns')->everyMinute();
         $schedule->job(new GenerateDailyRestaurantReports)->dailyAt('00:05');
+        $schedule->job(new GenerateMonthlyRestaurantReports)->monthlyOn(1, '00:10');
     }
 
     /**

@@ -31,17 +31,17 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/verify-otp', [AuthController::class, 'verifyOTP']);
+Route::post('/register', [AuthController::class, 'register']);//
+Route::post('/verify-otp', [AuthController::class, 'verifyOTP']);//
 
-Route::get('/get-Area', [AuthController::class, 'index']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::get('/get-Area', [AuthController::class, 'index']);//
+Route::post('/login', [AuthController::class, 'login']);//
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');//
 
 Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCustomer::class])->group(function () {
-    Route::get('infoUser', [AuthController::class, 'userInfo']);
-    Route::put('updateUserInfo', [AuthController::class, 'updateUserInfo']);
-    Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);
+    Route::get('infoUser', [AuthController::class, 'userInfo']);//
+    Route::put('updateUserInfo', [AuthController::class, 'updateUserInfo']);//
+    Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);//
     Route::get('searchByNameResturant/{city}', [SearchController::class, 'searchByNameResturant']);
     Route::get('getRestaurantsByCity/{city}', [SearchController::class, 'getRestaurantsByCity']);
     Route::get('searchMealByName/{city}', [SearchController::class, 'searchMealByName']);

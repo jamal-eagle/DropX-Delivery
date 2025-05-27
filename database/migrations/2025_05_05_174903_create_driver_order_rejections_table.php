@@ -16,9 +16,9 @@ return new class extends Migration
             $table->unsignedBigInteger('driver_id');
             $table->unsignedBigInteger('order_id');
             $table->timestamp('rejected_at');
-            $table->timestamps();
             $table->foreign('driver_id')->references('id')->on('drivers')->onDelete('cascade');
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
+            $table->timestamps();
         });
     }
 

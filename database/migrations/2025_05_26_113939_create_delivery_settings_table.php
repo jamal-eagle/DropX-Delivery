@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('delivery_settings', function (Blueprint $table) {
             $table->id();
-            $table->decimal('price_per_km', 10, 2)->default(1500); // أجرة التوصيل لكل كم
+            $table->decimal('price_per_km', 10, 2)->default(2500); 
             $table->unsignedInteger('minimum_delivery_fee')->default(10000);
             $table->timestamps();
         });

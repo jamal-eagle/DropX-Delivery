@@ -18,7 +18,8 @@ class RegisterRequest extends FormRequest
             'fullname'      => 'required|string|max:75',
             'phone' => 'required|string|max:15|unique:users,phone',
             'password' => 'required|string|min:8|confirmed',
-            'area_id'       => 'required|exists:areas,id',
+            'city'          => 'required|string|max:100',
+            'neighborhood'  => 'nullable|string|max:200',
             'fcm_token'     => 'nullable|string',
         ];
     }
