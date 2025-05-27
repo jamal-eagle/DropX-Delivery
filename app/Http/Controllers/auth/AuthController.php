@@ -52,40 +52,40 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request)
     {
-        return DB::transaction(function () use ($request) {
-            $normalizedPhone = $this->normalizePhoneForStorage($request->phone);
+        // return DB::transaction(function () use ($request) {
+        $normalizedPhone = $this->normalizePhoneForStorage($request->phone);
 
-            $user = User::create([
-                'fullname'    => $request->fullname,
-                'phone'       => $normalizedPhone,
-                'password'    => Hash::make($request->password),
-                'is_verified' => false,
-                // 'fcm_token' => $request->fcm_token,
-            ]);
+        $user = User::create([
+            'fullname'    => $request->fullname,
+            'phone'       => $normalizedPhone,
+            'password'    => Hash::make($request->password),
+            'is_verified' => false,
+            // 'fcm_token' => $request->fcm_token,
+        ]);
 
-            $area = Area::firstOrCreate(
-                ['city' => $request->city],
-                ['neighborhood' => $request->neighborhood]
-            );
+        $area = Area::firstOrCreate(
+            ['city' => $request->city],
+            ['neighborhood' => $request->neighborhood]
+        );
 
-            $user->areas()->attach($area->id);
+        $user->areas()->attach($area->id);
 
-            $formattedPhone = $this->formatPhoneNumberToE164($user->phone);
-            $otp = rand(100000, 999999);
-            Cache::put("otp_{$user->phone}", $otp, now()->addMinutes(5));
+        $formattedPhone = $this->formatPhoneNumberToE164($user->phone);
+        $otp = rand(100000, 999999);
+        Cache::put("otp_{$user->phone}", $otp, now()->addMinutes(5));
 
-            $sent = (new OTPSMSService())->send($formattedPhone, $otp);
+        $sent = (new OTPSMSService())->send($formattedPhone, $otp);
+        return response()->json($sent);
+        if (! $sent) {`
+            throw new \Exception("فشل في إرسال كود التحقق");
+        }
 
-            if (! $sent) {
-                throw new \Exception("فشل في إرسال كود التحقق");
-            }
-
-            // ✅ الاستجابة
-            return response()->json([
-                'message' => 'تم إنشاء الحساب. الرجاء إدخال رمز التحقق المرسل إلى هاتفك.',
-                'user_id' => $user->id
-            ], 201);
-        });
+        // ✅ الاستجابة
+        return response()->json([
+            'message' => 'تم إنشاء الحساب. الرجاء إدخال رمز التحقق المرسل إلى هاتفك.',
+            'user_id' => $user->id
+        ], 201);
+        // });
     }
 
 
