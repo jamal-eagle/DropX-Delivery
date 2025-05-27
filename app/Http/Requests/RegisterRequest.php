@@ -21,6 +21,5 @@ class RegisterRequest extends FormRequest
             'area_id'       => 'required|exists:areas,id',
             'fcm_token'     => 'nullable|string',
         ];
-        }
-
+    }
 }

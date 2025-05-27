@@ -20,15 +20,179 @@ use Illuminate\Support\Facades\Cache;
 
 class OrderController extends Controller
 {
+    public function calculateDistance($lat1, $lon1, $lat2, $lon2)
+    {
+        $earthRadius = 6371;
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+
+        $a = sin($dLat / 2) * sin($dLat / 2) +
+            cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+            sin($dLon / 2) * sin($dLon / 2);
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+        $distance = $earthRadius * $c;
+
+        return $distance;
+    }
+
+    // public function createOrderWithPromo(Request $request)
+    // {
+    //     $request->validate([
+    //         'meals' => 'required|array|min:1',
+    //         'meals.*.id' => 'required|exists:meals,id',
+    //         'meals.*.quantity' => 'required|integer|min:1',
+    //         'address_id' => 'required|exists:area_user,id',
+    //         'notes' => 'nullable|string',
+    //         'promo_code' => 'nullable|string',
+    //         'latitude' => 'required|numeric',
+    //         'longitude' => 'required|numeric',
+    //     ]);
+
+    //     $user = auth()->user();
+    //     DB::beginTransaction();
+
+    //     try {
+    //         $totalPrice = 0;
+    //         $restaurantId = null;
+    //         $promo = null;
+    //         $discount = 0;
+
+    //         $mealIds = collect($request->meals)->pluck('id')->toArray();
+    //         $meals = Meal::whereIn('id', $mealIds)->get()->keyBy('id');
+
+    //         foreach ($request->meals as $item) {
+    //             $meal = $meals->get($item['id']);
+
+    //             if (!$meal) {
+    //                 return response()->json(['message' => 'وجبة غير موجودة.'], 404);
+    //             }
+
+    //             if (!$restaurantId) {
+    //                 $restaurantId = $meal->restaurant_id;
+    //             } elseif ($restaurantId != $meal->restaurant_id) {
+    //                 return response()->json(['message' => 'كامل الطلب يجب أن يكون من نفس المطعم.'], 400);
+    //             }
+
+    //             $totalPrice += $meal->original_price * $item['quantity'];
+    //         }
+
+    //         $address = DB::table('area_user')
+    //             ->join('areas', 'area_user.area_id', '=', 'areas.id')
+    //             ->where('area_user.id', $request->address_id)
+    //             ->where('area_user.user_id', $user->id)
+    //             ->select('areas.city', 'areas.neighborhood')
+    //             ->first();
+
+    //         if (!$address) {
+    //             return response()->json(['message' => 'العنوان غير موجود.'], 404);
+    //         }
+
+    //         if ($request->filled('promo_code')) {
+    //             $promo = PromoCode::where('code', $request->promo_code)
+    //                 ->where('is_active', true)
+    //                 ->where('expiry_date', '>', now())
+    //                 ->first();
+
+    //             if (!$promo) {
+    //                 return response()->json(['message' => 'كود الخصم غير صالح أو منتهي.'], 404);
+    //             }
+
+    //             if ($totalPrice < $promo->min_order_value) {
+    //                 return response()->json(['message' => 'قيمة الطلب أقل من الحد الأدنى لهذا الكود.'], 422);
+    //             }
+
+    //             $alreadyUsed = DB::table('user_promo_codes')
+    //                 ->where('user_id', $user->id)
+    //                 ->where('promo_code_id', $promo->id)
+    //                 ->where('is_used', true)
+    //                 ->exists();
+
+    //             if ($alreadyUsed) {
+    //                 return response()->json(['message' => 'لقد استخدمت هذا الكود مسبقًا.'], 403);
+    //             }
+
+    //             $discount = $promo->discount_type === 'percentage'
+    //                 ? $totalPrice * ($promo->discount_value / 100)
+    //                 : $promo->discount_value;
+
+    //             $totalPrice -= $discount;
+    //         }
+
+    //         $barcodeText = 'order-' . Str::uuid();
+    //         $barcodePath = 'barcodes/' . $barcodeText . '.png';
+    //         $result = Builder::create()->data($barcodeText)->size(300)->margin(10)->build();
+    //         Storage::disk('public')->put($barcodePath, $result->getString());
+    //         $order = Order::create([
+    //             'user_id' => $user->id,
+    //             'restaurant_id' => $restaurantId,
+    //             'driver_id' => null,
+    //             'status' => 'pending',
+    //             'is_accepted' => false,
+    //             'total_price' => $totalPrice,
+    //             'delivery_address' => "{$address->city} - {$address->neighborhood}",
+    //             'notes' => $request->notes,
+    //             'delivery_fee' => 10000,
+    //             'barcode' => $barcodePath,
+    //         ]);
+
+    //         foreach ($request->meals as $item) {
+    //             $meal = $meals->get($item['id']);
+
+    //             $order->orderItems()->create([
+    //                 'meal_id' => $meal->id,
+    //                 'quantity' => $item['quantity'],
+    //                 'price' => $meal->original_price,
+    //             ]);
+    //         }
+
+    //         if ($promo) {
+    //             DB::table('promo_codes')->where('id', $promo->id)->decrement('max_uses');
+    //             DB::table('user_promo_codes')->insert([
+    //                 'user_id' => $user->id,
+    //                 'order_id' => $order->id,
+    //                 'promo_code_id' => $promo->id,
+    //                 'fcm_token' => $user->fcm_token,
+    //                 'is_used' => true,
+    //                 'used_at' => now(),
+    //                 'created_at' => now(),
+    //                 'updated_at' => now(),
+    //             ]);
+    //         }
+
+    //         Cache::forget("pending_orders_restaurant_{$restaurantId}");
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'message' => 'تم إنشاء الطلب' . ($promo ? ' مع تطبيق كود الخصم' : '') . ' بنجاح',
+    //             'order_Details' => $order,
+    //             'original_price' => round($totalPrice + $discount, 2),
+    //             'discount' => round($discount, 2),
+    //             'final_price' => round($totalPrice, 2) + $order->delivery_fee,
+    //             'barcode_url' => asset('storage/' . $barcodePath),
+    //         ], 201);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return response()->json([
+    //             'message' => 'حدث خطأ أثناء إنشاء الطلب',
+    //             'error' => $e->getMessage(),
+    //             'line' => $e->getLine(),
+    //             'file' => $e->getFile(),
+    //         ], 500);
+    //     }
+    // }
     public function createOrderWithPromo(Request $request)
     {
         $request->validate([
             'meals' => 'required|array|min:1',
             'meals.*.id' => 'required|exists:meals,id',
             'meals.*.quantity' => 'required|integer|min:1',
-            'address_id' => 'required|exists:area_user,id',
+            'delivery_address' => 'nullable|string',
             'notes' => 'nullable|string',
             'promo_code' => 'nullable|string',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
         ]);
 
         $user = auth()->user();
@@ -40,6 +204,7 @@ class OrderController extends Controller
             $promo = null;
             $discount = 0;
 
+            // جلب جميع الوجبات والتحقق من أنها من نفس المطعم
             $mealIds = collect($request->meals)->pluck('id')->toArray();
             $meals = Meal::whereIn('id', $mealIds)->get()->keyBy('id');
 
@@ -59,17 +224,30 @@ class OrderController extends Controller
                 $totalPrice += $meal->original_price * $item['quantity'];
             }
 
-            $address = DB::table('area_user')
-                ->join('areas', 'area_user.area_id', '=', 'areas.id')
-                ->where('area_user.id', $request->address_id)
-                ->where('area_user.user_id', $user->id)
-                ->select('areas.city', 'areas.neighborhood')
-                ->first();
+            // جلب معلومات المطعم وإحداثياته من جدول users
+            $restaurantUser = \App\Models\Restaurant::with('user')->findOrFail($restaurantId)->user;
 
-            if (!$address) {
-                return response()->json(['message' => 'العنوان غير موجود.'], 404);
+            if (!$restaurantUser || !$restaurantUser->latitude || !$restaurantUser->longitude) {
+                return response()->json(['message' => 'لا توجد إحداثيات للمطعم.'], 422);
             }
 
+            // حساب المسافة وأجرة التوصيل
+            $distance = $this->calculateDistance(
+                $restaurantUser->latitude,
+                $restaurantUser->longitude,
+                $request->latitude,
+                $request->longitude
+            );
+
+            $settings = DB::table('delivery_settings')->first();
+            $deliveryPerKm = $settings->price_per_km ?? 1500;
+            $minFee = $settings->minimum_delivery_fee ?? 10000;
+
+            $calculatedFee = round($distance * $deliveryPerKm);
+            $deliveryFee = max($minFee, $calculatedFee);
+
+
+            // تطبيق كود الخصم (إن وُجد)
             if ($request->filled('promo_code')) {
                 $promo = PromoCode::where('code', $request->promo_code)
                     ->where('is_active', true)
@@ -101,10 +279,13 @@ class OrderController extends Controller
                 $totalPrice -= $discount;
             }
 
+            // توليد باركود وتخزينه
             $barcodeText = 'order-' . Str::uuid();
             $barcodePath = 'barcodes/' . $barcodeText . '.png';
             $result = Builder::create()->data($barcodeText)->size(300)->margin(10)->build();
             Storage::disk('public')->put($barcodePath, $result->getString());
+
+            // إنشاء الطلب
             $order = Order::create([
                 'user_id' => $user->id,
                 'restaurant_id' => $restaurantId,
@@ -112,15 +293,16 @@ class OrderController extends Controller
                 'status' => 'pending',
                 'is_accepted' => false,
                 'total_price' => $totalPrice,
-                'delivery_address' => "{$address->city} - {$address->neighborhood}",
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
                 'notes' => $request->notes,
-                'delivery_fee' => 10000,
+                'delivery_fee' => $deliveryFee,
                 'barcode' => $barcodePath,
             ]);
 
+            // إدخال تفاصيل الطلب
             foreach ($request->meals as $item) {
                 $meal = $meals->get($item['id']);
-
                 $order->orderItems()->create([
                     'meal_id' => $meal->id,
                     'quantity' => $item['quantity'],
@@ -128,6 +310,7 @@ class OrderController extends Controller
                 ]);
             }
 
+            // تسجيل استخدام كود الخصم
             if ($promo) {
                 DB::table('promo_codes')->where('id', $promo->id)->decrement('max_uses');
                 DB::table('user_promo_codes')->insert([
@@ -146,11 +329,13 @@ class OrderController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'تم إنشاء الطلب' . ($promo ? ' مع تطبيق كود الخصم' : '') . ' بنجاح',
+                'message' => 'تم إنشاء الطلب بنجاح',
                 'order_Details' => $order,
                 'original_price' => round($totalPrice + $discount, 2),
                 'discount' => round($discount, 2),
-                'final_price' => round($totalPrice, 2) + $order->delivery_fee,
+                'final_price' => round($totalPrice + $deliveryFee, 2),
+                'delivery_fee' => $deliveryFee,
+                'distance_km' => round($distance, 2),
                 'barcode_url' => asset('storage/' . $barcodePath),
             ], 201);
         } catch (\Exception $e) {
@@ -163,6 +348,8 @@ class OrderController extends Controller
             ], 500);
         }
     }
+
+
 
 
     public function updateOrder(UpdateOrderRequest $request, $order_id)

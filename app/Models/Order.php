@@ -18,6 +18,8 @@ class Order extends Model
         'is_accepted',
         'total_price',
         'delivery_address',
+        'latitude',
+        'longitude',
         'notes',
         'delivery_fee',
         'barcode',
@@ -46,9 +48,9 @@ class Order extends Model
     }
 
     public function rejections()
-{
-    return $this->hasMany(DriverOrderRejection::class);
-}
+    {
+        return $this->hasMany(DriverOrderRejection::class);
+    }
 
 
 

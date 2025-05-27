@@ -100,7 +100,7 @@ class AuthController extends Controller
         $cachedOTP = Cache::get("otp_{$phone}");
 
         if ($cachedOTP && $cachedOTP == $request->otp) {
-            $user = \App\Models\User::where('phone', $phone)->first();
+            $user = User::where('phone', $phone)->first();
 
             if (!$user) {
                 return response()->json(['message' => 'المستخدم غير موجود'], 404);

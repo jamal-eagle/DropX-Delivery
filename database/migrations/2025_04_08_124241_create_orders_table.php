@@ -19,7 +19,7 @@ return new class extends Migration
             $table->enum('status', ['pending', 'preparing', 'on_delivery', 'delivered', 'rejected']);
             $table->boolean('is_accepted')->default(false);
             $table->decimal('total_price', 10, 2);
-            $table->text('delivery_address');
+            $table->text('delivery_address')->nullable();
             $table->text('notes')->nullable();
             $table->decimal('delivery_fee', 10, 2)->default(10000);
             $table->text('barcode')->unique();
