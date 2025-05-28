@@ -42,12 +42,12 @@ Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCus
     Route::get('infoUser', [AuthController::class, 'userInfo']);//
     Route::put('updateUserInfo', [AuthController::class, 'updateUserInfo']);//
     Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);//
-    Route::get('searchByNameResturant/{city}', [SearchController::class, 'searchByNameResturant']);
-    Route::get('getRestaurantsByCity/{city}', [SearchController::class, 'getRestaurantsByCity']);
-    Route::get('searchMealByName/{city}', [SearchController::class, 'searchMealByName']);
-    Route::post('addAddress', [AreaController::class, 'addAddress']);
-    Route::get('/desplayMyAddresses', [AreaController::class, 'getMyAddresses']);
-    Route::delete('/deleteAddresses/{areaId}', [AreaController::class, 'deleteAddress']);
+    Route::get('searchByNameResturant/{city}', [SearchController::class, 'searchByNameResturant']);//
+    Route::get('getRestaurantsByCity/{city}', [SearchController::class, 'getRestaurantsByCity']);//
+    Route::get('searchMealByName/{city}', [SearchController::class, 'searchMealByName']);//
+    Route::post('addAddress', [AreaController::class, 'addAddress']);///
+    Route::get('/desplayMyAddresses', [AreaController::class, 'getMyAddresses']);///
+    Route::delete('/deleteAddresses/{areaId}', [AreaController::class, 'deleteAddress']);///
     Route::post('addOrder', [OrderController::class, 'createOrderWithPromo']);
     Route::post('/orders/{order_id}/apply-promo', [OrderController::class, 'applyPromoToOrder1']);
     Route::put('/updateOrders/{order_id}', [OrderController::class, 'updateOrder']);

@@ -13,41 +13,68 @@ class SearchController extends Controller
 {
     public function getRestaurantsByCity($city)
     {
+        $areaIds = Area::where('city', $city)->pluck('id');
+
+        if ($areaIds->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'التطبيق لا يخدم هذه المدينة.',
+            ], 404);
+        }
         $restaurants = User::whereHas('areas', function ($query) use ($city) {
             $query->where('city', $city);
         })
             ->whereHas('restaurant')
             ->with([
+                'restaurant.meals.images',
                 'restaurant.categories.meals.images',
             ])
             ->get();
 
+        if ($restaurants->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'لا يوجد مطاعم في هذه المدينة.',
+            ], 404);
+        }
+
         $formattedRestaurants = $restaurants->map(function ($user) {
+            $restaurant = $user->restaurant;
+
+            $allMeals = $restaurant->meals->map(function ($meal) {
+                return [
+                    'meal_id' => $meal->id,
+                    'meal_name' => $meal->name,
+                    'price' => $meal->original_price,
+                    'is_available' => $meal->is_available,
+                    'images' => $meal->images->map(function ($img) {
+                        return asset('storage/' . $img->image);
+                    }),
+                ];
+            });
+
+            $categories = $restaurant->categories->map(function ($category) {
+                return [
+                    'category_name' => $category->name,
+                    'meals' => $category->meals->map(function ($meal) {
+                        return [
+                            'meal_id' => $meal->id,
+                            'meal_name' => $meal->name,
+                            'price' => $meal->original_price,
+                            'is_available' => $meal->is_available,
+                            'images' => $meal->images->map(function ($img) {
+                                return asset('storage/' . $img->image);
+                            }),
+                        ];
+                    }),
+                ];
+            });
+
             return [
-                'user_info' => [
-                    'name' => $user->fullname,
-                    'phone' => $user->phone,
-                ],
-                'restaurant_info' => [
-                    'description' => $user->restaurant->description,
-                    'status' => $user->restaurant->status,
-                ],
-                'categories' => $user->restaurant->categories->map(function ($category) {
-                    return [
-                        'category_name' => $category->name,
-                        'meals' => $category->meals->map(function ($meal) {
-                            return [
-                                'meal_id' => $meal->id,
-                                'name' => $meal->name,
-                                'price' => $meal->original_price,
-                                'is_available' => $meal->is_available,
-                                'images' => $meal->images->map(function ($img) {
-                                    return asset('storage/' . $img->image);
-                                }),
-                            ];
-                        }),
-                    ];
-                }),
+                'restaurant_From_User' => $restaurant->user,
+                'resturant_info' => $restaurant,
+                'all_meals' => $allMeals,
+                'categories' => $categories,
             ];
         });
 
@@ -60,64 +87,93 @@ class SearchController extends Controller
 
 
 
+
+
     public function searchByNameResturant(Request $request, $city)
     {
         $user = auth()->user();
+
+        $areaIds = Area::where('city', $city)->pluck('id');
+
+        if ($areaIds->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'التطبيق لا يخدم هذه  المدينة.',
+            ], 404);
+        }
 
         $request->validate([
             'name' => 'required|string',
         ]);
 
-        $userAreaIds = $user->areas->pluck('id');
-
-        $restaurantUser = User::whereHas('areas', function ($query) use ($userAreaIds) {
-            $query->whereIn('areas.id', $userAreaIds);
+        $restaurantUsers = User::whereHas('areas', function ($query) use ($city) {
+            $query->where('areas.city', $city);
         })
             ->where('fullname', 'LIKE', '%' . $request->name . '%')
             ->whereHas('restaurant')
-            ->with(['restaurant', 'restaurant.meals.images'])
-            ->first();
+            ->with([
+                'restaurant.meals.images',
+                'restaurant.categories.meals.images'
+            ])
+            ->get();
 
-        if (!$restaurantUser) {
+        if ($restaurantUsers->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'لا يوجد مطعم بهذا الاسم في منطقتك',
+                'message' => 'لا يوجد مطعم بهذا الاسم في المنطقة التي انت فيها',
             ], 404);
         }
 
-        $restaurant = $restaurantUser->restaurant;
+        $formattedRestaurants = $restaurantUsers->map(function ($user) {
+            $restaurant = $user->restaurant;
 
-        $categories = Category::whereHas('meals', function ($q) use ($restaurant) {
-            $q->where('restaurant_id', $restaurant->id);
-        })
-            ->with(['meals' => function ($q) use ($restaurant) {
-                $q->where('restaurant_id', $restaurant->id);
-            }, 'meals.images'])
-            ->get();
+            $allMeals = $restaurant->meals->map(function ($meal) {
+                return [
+                    'meal_id' => $meal->id,
+                    'meal_name' => $meal->name,
+                    'price' => $meal->original_price,
+                    'is_available' => $meal->is_available,
+                    'images' => $meal->images->map(function ($img) {
+                        return asset('storage/' . $img->image);
+                    }),
+                ];
+            });
 
-        return response()->json([
-            'status' => true,
-            'restaurant' => [
-                'name' => $restaurantUser->fullname,
-                'details' => $restaurant,
-                'city' => $city,
-            ],
-            'categories' => $categories->map(function ($category) {
+            $categories = $restaurant->categories->map(function ($category) use ($restaurant) {
+                $meals = $category->meals->where('restaurant_id', $restaurant->id);
+
                 return [
                     'category_name' => $category->name,
-                    'meals' => $category->meals->map(function ($meal) {
+                    'meals' => $meals->map(function ($meal) {
                         return [
+                            'meal_id' => $meal->id,
                             'meal_name' => $meal->name,
                             'price' => $meal->original_price,
+                            'is_available' => $meal->is_available,
                             'images' => $meal->images->map(function ($image) {
                                 return asset('storage/' . $image->image);
                             }),
                         ];
-                    }),
+                    })->values(),
                 ];
-            })
+            });
+
+            return [
+                'restaurant_From_User' => $user,
+                'resturant_info' => $restaurant,
+                'all_meals' => $allMeals,
+                'categories' => $categories,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'city' => $city,
+            'restaurants' => $formattedRestaurants,
         ], 200);
     }
+
+
 
 
     public function searchMealByName(Request $request, $city)
@@ -133,35 +189,54 @@ class SearchController extends Controller
         if ($areaIds->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'لا توجد مناطق لهذه المدينة.',
+                'message' => 'التطبيق لا يخدم هذه المدينة.',
             ], 404);
         }
 
-        $restaurants = User::whereHas('areas', function ($query) use ($areaIds) {
+        $restaurantUsers = User::whereHas('areas', function ($query) use ($areaIds) {
             $query->whereIn('areas.id', $areaIds);
         })
-            ->whereHas('restaurant.meals', function ($query) use ($mealName) {
-                $query->where('name', 'LIKE', '%' . $mealName . '%');
-            })
-            ->with([
-                'restaurant.meals' => function ($query) use ($mealName) {
-                    $query->where('name', 'LIKE', '%' . $mealName . '%')
-                        ->with('images');
-                },
-                'restaurant',
-            ])
-            ->get();
+        ->whereHas('restaurant.meals', function ($query) use ($mealName) {
+            $query->where('name', 'LIKE', '%' . $mealName . '%');
+        })
+        ->with([
+            'restaurant.meals' => function ($query) use ($mealName) {
+                $query->where('name', 'LIKE', '%' . $mealName . '%')
+                    ->with('images');
+            },
+            'restaurant',
+        ])
+        ->get();
 
-        if ($restaurants->isEmpty()) {
+        if ($restaurantUsers->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'لا توجد مطاعم تقدم هذه الوجبة في هذه المدينة.',
             ], 404);
         }
 
+        $data = $restaurantUsers->map(function ($user) {
+            return [
+                'restaurant_user' => [
+                    'Resturant_From_User' => $user,
+                ],
+                'matched_meals' => $user->restaurant->meals->map(function ($meal) {
+                    return [
+                        'meal_id' => $meal->id,
+                        'meal_name' => $meal->name,
+                        'price' => $meal->original_price,
+                        'is_available' => $meal->is_available,
+                        'images' => $meal->images->map(function ($img) {
+                            return asset('storage/' . $img->image);
+                        }),
+                    ];
+                }),
+            ];
+        });
+
         return response()->json([
-            'status' => true,
-            'restaurants' => $restaurants,
+            'restaurants' => $data,
         ], 200);
     }
+
 }

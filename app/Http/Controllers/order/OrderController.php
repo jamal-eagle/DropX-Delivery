@@ -10,6 +10,7 @@ use App\Models\Meal;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PromoCode;
+use App\Models\Restaurant;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -204,7 +205,6 @@ class OrderController extends Controller
             $promo = null;
             $discount = 0;
 
-            // جلب جميع الوجبات والتحقق من أنها من نفس المطعم
             $mealIds = collect($request->meals)->pluck('id')->toArray();
             $meals = Meal::whereIn('id', $mealIds)->get()->keyBy('id');
 
@@ -224,14 +224,12 @@ class OrderController extends Controller
                 $totalPrice += $meal->original_price * $item['quantity'];
             }
 
-            // جلب معلومات المطعم وإحداثياته من جدول users
-            $restaurantUser = \App\Models\Restaurant::with('user')->findOrFail($restaurantId)->user;
+            $restaurantUser = Restaurant::with('user')->findOrFail($restaurantId)->user;
 
             if (!$restaurantUser || !$restaurantUser->latitude || !$restaurantUser->longitude) {
                 return response()->json(['message' => 'لا توجد إحداثيات للمطعم.'], 422);
             }
 
-            // حساب المسافة وأجرة التوصيل
             $distance = $this->calculateDistance(
                 $restaurantUser->latitude,
                 $restaurantUser->longitude,
@@ -246,8 +244,7 @@ class OrderController extends Controller
             $calculatedFee = round($distance * $deliveryPerKm);
             $deliveryFee = max($minFee, $calculatedFee);
 
-
-            // تطبيق كود الخصم (إن وُجد)
+                    
             if ($request->filled('promo_code')) {
                 $promo = PromoCode::where('code', $request->promo_code)
                     ->where('is_active', true)
