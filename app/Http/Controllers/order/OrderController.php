@@ -244,7 +244,7 @@ class OrderController extends Controller
             $calculatedFee = round($distance * $deliveryPerKm);
             $deliveryFee = max($minFee, $calculatedFee);
 
-                    
+
             if ($request->filled('promo_code')) {
                 $promo = PromoCode::where('code', $request->promo_code)
                     ->where('is_active', true)
@@ -276,13 +276,11 @@ class OrderController extends Controller
                 $totalPrice -= $discount;
             }
 
-            // توليد باركود وتخزينه
             $barcodeText = 'order-' . Str::uuid();
             $barcodePath = 'barcodes/' . $barcodeText . '.png';
             $result = Builder::create()->data($barcodeText)->size(300)->margin(10)->build();
             Storage::disk('public')->put($barcodePath, $result->getString());
 
-            // إنشاء الطلب
             $order = Order::create([
                 'user_id' => $user->id,
                 'restaurant_id' => $restaurantId,
@@ -297,7 +295,6 @@ class OrderController extends Controller
                 'barcode' => $barcodePath,
             ]);
 
-            // إدخال تفاصيل الطلب
             foreach ($request->meals as $item) {
                 $meal = $meals->get($item['id']);
                 $order->orderItems()->create([
@@ -307,7 +304,6 @@ class OrderController extends Controller
                 ]);
             }
 
-            // تسجيل استخدام كود الخصم
             if ($promo) {
                 DB::table('promo_codes')->where('id', $promo->id)->decrement('max_uses');
                 DB::table('user_promo_codes')->insert([
@@ -559,37 +555,19 @@ class OrderController extends Controller
 
         $orders = Order::where('user_id', $user->id)
             ->with([
-                'restaurant.user:id,fullname',
-                'orderItems.meal:id,name,original_price',
-                'orderItems.meal.images:id,meal_id,image',
-
+                'restaurant',
+                'restaurant.user',
+                'orderItems.meal.images',
             ])
             ->orderBy('created_at', 'desc')
             ->get();
 
         $result = $orders->map(function ($order) {
             return [
-                'order_id' => $order->id,
-                'status' => $order->status,
-                'is_accepted' => $order->is_accepted,
-                'total_price' => $order->total_price,
-                'delivery_fee' => $order->delivery_fee,
-                'delivery_address' => $order->delivery_address,
-                'final_account' => $order->delivery_fee + $order->total_price,
-                'notes' => $order->notes,
-                'barcode_url' => asset('storage/' . $order->barcode),
-                'restaurant_name' => $order->restaurant->user->fullname ?? null,
-                'meals' => $order->orderItems->map(function ($item) {
-                    return [
-                        'meal_name' => $item->meal->name ?? 'غير متوفرة',
-                        'price' => $item->price,
-                        'quantity' => $item->quantity,
-                        'images' => $item->meal->images->map(function ($image) {
-                            return asset('storage/' . $image->image);
-                        }),
-                    ];
-                }),
-                'created_at' => $order->created_at,
+                'order' => $order,
+                'barcode_url' => $order->barcode ? asset('storage/' . $order->barcode) : null,
+
+                'created_at' => $order->created_at->toDateTimeString(),
             ];
         });
 
@@ -598,55 +576,49 @@ class OrderController extends Controller
         ], 200);
     }
 
+
     public function getCompletedOrdersForUser()
     {
         $user = auth()->user();
 
-        $orders = Order::with(['restaurant.user', 'orderItems.meal.images'])
+        $orders = Order::with([
+            'restaurant',
+            'restaurant.user',
+            'orderItems.meal.images',
+        ])
             ->where('user_id', $user->id)
             ->where('status', 'delivered')
-            ->latest()
+            ->orderByDesc('created_at')
             ->get();
+
+        $result = $orders->map(function ($order) use ($user) {
+            $promoUsed = DB::table('user_promo_codes')
+                ->where('user_id', $user->id)
+                ->where('order_id', $order->id)
+                ->where('is_used', true)
+                ->exists();
+
+            $promoDetails = DB::table('user_promo_codes')
+                ->where('user_id', $user->id)
+                ->where('order_id', $order->id)
+                ->where('is_used', true)
+                ->get();
+
+            return [
+                'order' => $order,
+                'barcode_url' => $order->barcode ? asset('storage/' . $order->barcode) : null,
+                'created_at' => $order->created_at->toDateTimeString(),
+                'promo_used' => $promoUsed,
+                'promo_details' => $promoDetails,
+            ];
+        });
 
         return response()->json([
             'status' => true,
-            'orders' => $orders->map(function ($order) use ($user) {
-                $promoUsed = DB::table('user_promo_codes')
-                    ->where('user_id', $user->id)
-                    ->where('order_id', $order->id)
-                    ->where('is_used', true)
-                    ->exists();
-
-                $promoUsed1 = DB::table('user_promo_codes')
-                    ->where('user_id', $user->id)
-                    ->where('order_id', $order->id)
-                    ->where('is_used', true)
-                    ->get();
-
-                return [
-                    'order_id' => $order->id,
-                    'restaurant_name' => optional($order->restaurant->user)->fullname,
-                    'total_price' => $order->total_price,
-                    'delifery_fee' => $order->delivery_fee,
-                    'final_price' => $order->total_price  + $order->delivery_fee,
-                    'delivery_address' => $order->delivery_address,
-                    'delivered_at' => $order->updated_at,
-                    'promo_used' => $promoUsed,
-                    'promo_Details' => $promoUsed1,
-                    'meals' => $order->orderItems->map(function ($item) {
-                        return [
-                            'name' => optional($item->meal)->name,
-                            'quantity' => $item->quantity,
-                            'price' => $item->price,
-                            'images' => optional($item->meal->images)->map(function ($img) {
-                                return asset('storage/' . $img->image);
-                            }),
-                        ];
-                    }),
-                ];
-            }),
+            'orders' => $result,
         ]);
     }
+
 
     public function getMealsByCity($city)
     {
