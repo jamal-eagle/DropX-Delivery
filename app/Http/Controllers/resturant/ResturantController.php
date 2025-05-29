@@ -117,13 +117,18 @@ class ResturantController extends Controller
             ->where('restaurant_id', $restaurant->id)
             ->where('id', $orderId)
             ->first();
-
         if (!$order) {
+            return response()->json(['message' => 'الطلب غير موجود.'], 404);
+        }
+        $order1 = Order::where('id', $orderId)
+            ->first();
+        if (!$order1) {
             return response()->json(['message' => 'الطلب غير موجود.'], 404);
         }
 
         $items = $order->orderItems->map(function ($item) {
             return [
+
                 'meal_name' => $item->meal->name,
                 'quantity' => $item->quantity,
                 'price' => $item->price,
@@ -136,7 +141,7 @@ class ResturantController extends Controller
         $totalQuantity = $order->orderItems->sum('quantity');
         $distinctTypes = $order->orderItems->count();
         return response()->json([
-            'order_id' => $order->id,
+            'order' => $order1,
             'customer' => [
                 'fullname' => $order->user->fullname,
                 'phone' => $order->user->phone,
@@ -299,10 +304,22 @@ class ResturantController extends Controller
     {
         $user = auth()->user()->load('restaurant');
 
-        if (!$user) {
+        if (!$user || !$user->restaurant) {
             return response()->json('هذا ليس حساب مطعم ', 403);
         }
 
-        return response()->json($user, 200);
+        $restaurant = $user->restaurant;
+        $restaurantData = $restaurant->toArray();
+
+        // تحويل الصورة إلى رابط كامل
+        $image = $restaurantData['image'] = $restaurant->image
+            ? asset('storage/' . $restaurant->image)
+            : null;
+
+        return response()->json([
+            'status' => true,
+            'user' => $user,
+            'image' => $image,
+        ], 200);
     }
 }

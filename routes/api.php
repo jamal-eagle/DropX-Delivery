@@ -54,9 +54,9 @@ Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCus
     Route::put('updateOrAddMealToOrder/{orderId}', [OrderController::class, 'updateOrAddMealToOrder']);
     Route::delete('deleteMealsFromOrder/{orderId}', [OrderController::class, 'deleteOrderMeals']);
     Route::get('/getMyAllOrder', [OrderController::class, 'getMyOrders']);//
-    Route::get('/getCompletedOrdersForUser', [OrderController::class, 'getCompletedOrdersForUser']);
-    Route::get('/getMealsByCity/{city}', [OrderController::class, 'getMealsByCity']);
-    Route::get('/getAllMealsOnMyAppletion', [OrderController::class, 'getAllMeals']);
+    Route::get('/getCompletedOrdersForUser', [OrderController::class, 'getCompletedOrdersForUser']);//
+    Route::get('/getMealsByCity/{city}', [OrderController::class, 'getMealsByCity']);//
+    Route::get('/getAllMealsOnMyAppletion', [OrderController::class, 'getAllMeals']);//
 });
 
 Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])->group(function () {
