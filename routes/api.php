@@ -74,7 +74,8 @@ Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])-
 });
 
 Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {
-    Route::get('desplayAvailableOrder/prepring', [DriverController::class, 'availableOrders']);
+    Route::get('desplayAvailableOrder/prepring', [DriverController::class, 'availableOrdersPreparing']);
+    Route::get('desplayAvailableOrder/ondelivery', [DriverController::class, 'availableOrdersOnDelivery']);
     Route::get('orders/completed', [DriverController::class, 'completedOrders']);
     Route::get('orders/Notcompleted', [DriverController::class, 'orderforrdivernotcomplete']);
     Route::put('orders/acceptOrder/{order_id}', [DriverController::class, 'acceptOrder']);

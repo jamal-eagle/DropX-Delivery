@@ -98,7 +98,7 @@ class DriverController extends Controller
         return $now >= $workingSchedule->start_time && $now <= $workingSchedule->end_time;
     }
 
-    public function availableOrders()
+    public function availableOrdersPreparing()
     {
         $user = Auth::user();
 
@@ -108,24 +108,19 @@ class DriverController extends Controller
         $driver = $user->driver;
         $driverId = $user->driver->id;
 
-        if (!$driver->is_active) {
-            return response()->json(['message' => ' حالة السائق غير متاح حالياً يرجى تعديل الحالة لرؤية الطلبات المتاحة.'], 403);
-        }
+        // if (!$driver->is_active) {
+        //     return response()->json(['message' => ' حالة السائق غير متاح حالياً يرجى تعديل الحالة لرؤية الطلبات المتاحة.'], 403);
+        // }
 
         $driverCities = $user->areas()->pluck('city')->unique()->values()->toArray();
 
-        $rejectedOrderIds = DriverOrderRejection::where('driver_id', $driverId)
-            ->pluck('order_id')
-            ->toArray();
-
-        $orders = Order::where('status', 'preparing')
+        $orders = Order::whereIn('status', ['preparing'])
+            ->where('driver_id', $driverId)
             ->where('is_accepted', true)
-            ->whereNull('driver_id')
-            ->whereNotIn('id', $rejectedOrderIds)
             ->whereHas('restaurant.user.areas', function ($query) use ($driverCities) {
                 $query->whereIn('city', $driverCities);
             })
-            ->with(['user', 'restaurant.user.areas', 'orderItems.meal'])
+            ->with(['user', 'restaurant.user', 'orderItems.meal'])
             ->get();
 
         return response()->json([
@@ -133,6 +128,35 @@ class DriverController extends Controller
         ], 200);
     }
 
+    public function availableOrdersOnDelivery()
+    {
+        $user = Auth::user();
+
+        if ($user->user_type !== 'driver') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        $driver = $user->driver;
+        $driverId = $user->driver->id;
+
+        // if (!$driver->is_active) {
+        //     return response()->json(['message' => ' حالة السائق غير متاح حالياً يرجى تعديل الحالة لرؤية الطلبات المتاحة.'], 403);
+        // }
+
+        $driverCities = $user->areas()->pluck('city')->unique()->values()->toArray();
+
+        $orders = Order::whereIn('status', ['on_delivery'])
+            ->where('driver_id', $driverId)
+            ->where('is_accepted', true)
+            ->whereHas('restaurant.user.areas', function ($query) use ($driverCities) {
+                $query->whereIn('city', $driverCities);
+            })
+            ->with(['user', 'restaurant.user', 'orderItems.meal'])
+            ->get();
+
+        return response()->json([
+            'orders' => $orders,
+        ], 200);
+    }
 
     public function completedOrders()
     {
@@ -148,7 +172,7 @@ class DriverController extends Controller
             ->where('status', 'delivered')
             ->with([
                 'user',
-                'restaurant',
+                'restaurant.user',
                 'orderItems.meal'
             ])
             ->orderByDesc('updated_at')
@@ -190,9 +214,9 @@ class DriverController extends Controller
 
         $order = Order::where('id', $order_id)
             ->with([
-                'user',                  // صاحب الطلب
-                'restaurant',           // المطعم
-                'orderItems.meal'       // تفاصيل كل وجبة
+                'user',
+                'restaurant.user',
+                'orderItems.meal'
             ])
             ->first();
 
