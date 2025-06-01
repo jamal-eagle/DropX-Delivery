@@ -3,15 +3,103 @@
 namespace App\Http\Controllers\resturant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Driver;
+use App\Models\DriverAreaTurn;
 use App\Models\Meal;
 use App\Models\Order;
 use App\Models\Restaurant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ResturantController extends Controller
 {
+    protected function isDriverInWorkingHours($driver)
+    {
+        $today = now()->format('l'); // Saturday, Sunday...
+
+        $workingSchedule = $driver->workingHours()
+            ->where('day_of_week', $today)
+            ->first();
+
+        if (!$workingSchedule) {
+            return false;
+        }
+
+        $now = now()->format('H:i:s');
+
+        return $now >= $workingSchedule->start_time && $now <= $workingSchedule->end_time;
+    }
+
+    private function rotateDriverTurn($currentDriver): bool
+    {
+        $userAreas = $currentDriver->user->areas;
+
+        if ($userAreas->isEmpty()) {
+            Log::warning("السائق ID {$currentDriver->id} غير مرتبط بأي منطقة.");
+            return false;
+        }
+
+        $driverCities = $userAreas->pluck('city')->map(fn($city) => strtolower(trim($city)))->unique()->toArray();
+
+        $allTurns = DriverAreaTurn::where('is_active', true)
+            ->whereHas('driver.user.areas', function ($query) use ($driverCities) {
+                $query->whereIn(DB::raw('LOWER(TRIM(city))'), $driverCities);
+            })
+            ->with(['driver.user.areas', 'driver.workingHours'])
+            ->orderBy('turn_order')
+            ->get();
+
+        $currentTurn = $allTurns->firstWhere('driver_id', $currentDriver->id);
+
+        if (!$currentTurn) {
+            Log::error("❌ لم يتم العثور على دور للسائق ID {$currentDriver->id} ضمن السائقين في المدن: " . implode(', ', $driverCities));
+            return false;
+        }
+
+        // فلترة السائقين المؤهلين (غيره)
+        $eligibleTurns = $allTurns->filter(function ($turn) use ($currentDriver) {
+            $driver = $turn->driver;
+
+            return $driver
+                && $driver->id !== $currentDriver->id
+                && $driver->is_active
+                && $this->isDriverInWorkingHours($driver);
+        });
+
+        // لا يوجد بديل مؤهل → لا تغيير
+        if ($eligibleTurns->isEmpty()) {
+            $currentTurn->update([
+                'is_next' => true,
+                'turn_assigned_at' => now(),
+            ]);
+
+            Log::info("🚫 لا يمكن تدوير الدور: لا يوجد سائق آخر متاح.");
+            return false;
+        }
+
+        // تدوير الدور فعليًا
+        $nextTurn = $eligibleTurns->first();
+
+        $currentTurn->update([
+            'is_next' => false,
+            'turn_assigned_at' => null,
+        ]);
+
+        $nextTurn->update([
+            'is_next' => true,
+            'turn_assigned_at' => now(),
+        ]);
+
+        Log::info("✅ تم تدوير الدور من السائق ID {$currentDriver->id} إلى السائق ID {$nextTurn->driver_id}");
+
+        return true;
+    }
+
+
+
     public function getPreparingOrders()
     {
         $restaurantId = auth()->user()->restaurant->id;
@@ -47,35 +135,129 @@ class ResturantController extends Controller
         ], 200);
     }
 
+    // public function acceptOrder($orderId)
+    // {
+    //     $restaurant = auth()->user()->restaurant;
+
+    //     $order = Order::where('id', $orderId)
+    //         ->where('restaurant_id', $restaurant->id)
+    //         ->where('status', 'pending')
+    //         ->first();
+
+    //     if (!$order) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'الطلب غير موجود أو تم قبوله مسبقًا.',
+    //         ], 404);
+    //     }
+
+    //     $order->status = 'preparing';
+    //     $order->is_accepted = true;
+    //     $order->save();
+
+    //     Cache::forget("pending_orders_restaurant_{$restaurant->id}");
+    //     Cache::forget("preparing_orders_restaurant_{$restaurant->id}");
+
+    //     return response()->json([
+    //         'status' => true,
+    //         'message' => 'تم قبول الطلب بنجاح',
+    //         'order' => $order,
+    //     ], 200);
+    // }
+
     public function acceptOrder($orderId)
     {
-        $restaurant = auth()->user()->restaurant;
+        try {
+            $result = DB::transaction(function () use ($orderId) {
+                $restaurant = auth()->user()->restaurant;
 
-        $order = Order::where('id', $orderId)
-            ->where('restaurant_id', $restaurant->id)
-            ->where('status', 'pending')
-            ->first();
+                $order = Order::where('id', $orderId)
+                    ->where('restaurant_id', $restaurant->id)
+                    ->where('status', 'pending')
+                    ->first();
 
-        if (!$order) {
+                if (!$order) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'الطلب غير موجود أو تم قبوله مسبقًا.',
+                    ], 404);
+                }
+
+                $order->status = 'preparing';
+                $order->is_accepted = true;
+
+                $restaurantCity = optional($restaurant->user->areas()->first())->city;
+
+                if (!$restaurantCity) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'لا يمكن تحديد المدينة الخاصة بالمطعم.',
+                    ], 400);
+                }
+
+                $candidateDrivers = Driver::whereHas('user.areas', function ($query) use ($restaurantCity) {
+                    $query->whereRaw('LOWER(TRIM(city)) = ?', [strtolower(trim($restaurantCity))]);
+                })
+                    ->whereHas('areaTurns', function ($q) {
+                        $q->where('is_next', true)->where('is_active', true);
+                    })
+                    ->with([
+                        'areaTurns' => function ($q) {
+                            $q->where('is_next', true)->where('is_active', true);
+                        },
+                        'user.areas'
+                    ])
+                    ->get();
+
+                $availableDriver = null;
+
+                foreach ($candidateDrivers as $driver) {
+                    $turn = $driver->areaTurns->first();
+
+                    if (
+                        $driver->is_active &&
+                        $this->isDriverInWorkingHours($driver)
+                    ) {
+                        $availableDriver = $driver;
+                        break;
+                    }
+                }
+
+                if (!$availableDriver) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'لا يوجد سائق متاح حاليًا في المدينة.',
+                    ], 422);
+                }
+
+                $order->driver_id = $availableDriver->id;
+                $order->save();
+
+                $availableDriver->areaTurns->first()->update([
+                    'turn_assigned_at' => now(),
+                ]);
+
+                $this->rotateDriverTurn($availableDriver);
+
+                Cache::forget("pending_orders_restaurant_{$restaurant->id}");
+                Cache::forget("preparing_orders_restaurant_{$restaurant->id}");
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'تم قبول الطلب وتعيين سائق.',
+                    'order' => $order,
+                ], 200);
+            });
+
+            return $result;
+        } catch (\Throwable $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'الطلب غير موجود أو تم قبوله مسبقًا.',
-            ], 404);
+                'message' => 'حدث خطأ غير متوقع أثناء قبول الطلب.',
+            ], 500);
         }
-
-        $order->status = 'preparing';
-        $order->is_accepted = true;
-        $order->save();
-
-        Cache::forget("pending_orders_restaurant_{$restaurant->id}");
-        Cache::forget("preparing_orders_restaurant_{$restaurant->id}");
-
-        return response()->json([
-            'status' => true,
-            'message' => 'تم قبول الطلب بنجاح',
-            'order' => $order,
-        ], 200);
     }
+
 
     public function rejectOrder($orderId)
     {

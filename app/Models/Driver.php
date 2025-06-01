@@ -32,11 +32,16 @@ class Driver extends Model
 
     public function areaTurns()
     {
-        return $this->hasMany(DriverAreaTurn::class);
+        return $this->hasOne(DriverAreaTurn::class);
     }
 
     public function orderRejections()
     {
         return $this->hasMany(DriverOrderRejection::class);
+    }
+
+    public function workingHours()
+    {
+        return $this->hasMany(DriverWorkingHour::class);
     }
 }

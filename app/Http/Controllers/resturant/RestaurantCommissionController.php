@@ -1,13 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\resturant;
 
 use App\Models\RestaurantCommission;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
 
 class RestaurantCommissionController extends Controller
 {
-    public function updateCommission(Request $request ,$resturant_id)
+    public function updateCommission(Request $request, $resturant_id)
     {
         $user = auth()->user();
 

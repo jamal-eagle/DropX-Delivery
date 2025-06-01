@@ -15,7 +15,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
 
-        $schedule->command('rotate:driver-turns')->everyMinute();
+        $schedule->command('drivers:rotate-daily')->dailyAt('06:00');
         $schedule->job(new GenerateDailyRestaurantReports)->dailyAt('00:05');
         $schedule->job(new GenerateMonthlyRestaurantReports)->monthlyOn(1, '00:10');
     }

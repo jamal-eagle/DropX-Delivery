@@ -8,7 +8,7 @@ use App\Http\Controllers\Driver\DriverController;
 use App\Http\Controllers\meal\MealController;
 use App\Http\Controllers\meal\SearchController;
 use App\Http\Controllers\order\OrderController;
-use App\Http\Controllers\RestaurantCommissionController;
+use App\Http\Controllers\resturant\RestaurantCommissionController;
 use App\Http\Controllers\resturant\ResturantController;
 use App\Http\Middleware\CheckResturant;
 use Illuminate\Http\Request;
@@ -31,32 +31,32 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 
-Route::post('/register', [AuthController::class, 'register']);//
-Route::post('/verify-otp', [AuthController::class, 'verifyOTP']);//
+Route::post('/register', [AuthController::class, 'register']); //
+Route::post('/verify-otp', [AuthController::class, 'verifyOTP']); //
 
-Route::get('/get-Area', [AuthController::class, 'index']);//
-Route::post('/login', [AuthController::class, 'login']);//
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');//
+Route::get('/get-Area', [AuthController::class, 'index']); //
+Route::post('/login', [AuthController::class, 'login']); //
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum'); //
 
 Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCustomer::class])->group(function () {
-    Route::get('infoUser', [AuthController::class, 'userInfo']);//
-    Route::put('updateUserInfo', [AuthController::class, 'updateUserInfo']);//
-    Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);//
-    Route::get('searchByNameResturant/{city}', [SearchController::class, 'searchByNameResturant']);//
-    Route::get('getRestaurantsByCity/{city}', [SearchController::class, 'getRestaurantsByCity']);//
-    Route::get('searchMealByName/{city}', [SearchController::class, 'searchMealByName']);//
-    Route::post('addAddress', [AreaController::class, 'addAddress']);///
-    Route::get('/desplayMyAddresses', [AreaController::class, 'getMyAddresses']);///
-    Route::delete('/deleteAddresses/{areaId}', [AreaController::class, 'deleteAddress']);///
-    Route::post('addOrder', [OrderController::class, 'createOrderWithPromo']);//
+    Route::get('infoUser', [AuthController::class, 'userInfo']); //
+    Route::put('updateUserInfo', [AuthController::class, 'updateUserInfo']); //
+    Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']); //
+    Route::get('searchByNameResturant/{city}', [SearchController::class, 'searchByNameResturant']); //
+    Route::get('getRestaurantsByCity/{city}', [SearchController::class, 'getRestaurantsByCity']); //
+    Route::get('searchMealByName/{city}', [SearchController::class, 'searchMealByName']); //
+    Route::post('addAddress', [AreaController::class, 'addAddress']); ///
+    Route::get('/desplayMyAddresses', [AreaController::class, 'getMyAddresses']); ///
+    Route::delete('/deleteAddresses/{areaId}', [AreaController::class, 'deleteAddress']); ///
+    Route::post('addOrder', [OrderController::class, 'createOrderWithPromo']); //
     Route::post('/orders/{order_id}/apply-promo', [OrderController::class, 'applyPromoToOrder1']);
     Route::put('/updateOrders/{order_id}', [OrderController::class, 'updateOrder']);
     Route::put('updateOrAddMealToOrder/{orderId}', [OrderController::class, 'updateOrAddMealToOrder']);
     Route::delete('deleteMealsFromOrder/{orderId}', [OrderController::class, 'deleteOrderMeals']);
-    Route::get('/getMyAllOrder', [OrderController::class, 'getMyOrders']);//
-    Route::get('/getCompletedOrdersForUser', [OrderController::class, 'getCompletedOrdersForUser']);//
-    Route::get('/getMealsByCity/{city}', [OrderController::class, 'getMealsByCity']);//
-    Route::get('/getAllMealsOnMyAppletion', [OrderController::class, 'getAllMeals']);//
+    Route::get('/getMyAllOrder', [OrderController::class, 'getMyOrders']); //
+    Route::get('/getCompletedOrdersForUser', [OrderController::class, 'getCompletedOrdersForUser']); //
+    Route::get('/getMealsByCity/{city}', [OrderController::class, 'getMealsByCity']); //
+    Route::get('/getAllMealsOnMyAppletion', [OrderController::class, 'getAllMeals']); //
 });
 
 Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])->group(function () {
@@ -80,6 +80,8 @@ Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckD
     Route::put('orders/acceptOrder/{order_id}', [DriverController::class, 'acceptOrder']);
     Route::post('orders/rejectOrder/{order_id}', [DriverController::class, 'rejectOrder']);
     Route::get('orders/getOrderDetails/{order_id}', [DriverController::class, 'getOrderDetails']);
+    Route::put('updateAvailabilityTofalse',[DriverController::class, 'updateAvailabilityToFalse']);
+    Route::put('updateAvailabilityTotrue',[DriverController::class, 'updateAvailabilityToTrue']);
 });
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
