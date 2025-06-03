@@ -150,6 +150,12 @@ class AuthController extends Controller
                 'message' => 'هذا الحساب لم يتم التحقق منه يرجى تاكيد الحساب '
             ]);
         }
+        if (! $user->is_active) {
+            return response()->json([
+                'status' => false,
+                'message' => 'هذا الحساب قيد الايقاف يرجى التواصل مع الشركة من اجل ذلك !!!! '
+            ]);
+        }
 
         $user = User::where('phone', $request->phone)->FirstOrFail();
         $token = $user->createToken('auth_token')->plainTextToken;

@@ -15,16 +15,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -81,8 +71,8 @@ Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckD
     Route::put('orders/acceptOrder/{order_id}', [DriverController::class, 'acceptOrder']);
     Route::post('orders/rejectOrder/{order_id}', [DriverController::class, 'rejectOrder']);
     Route::get('orders/getOrderDetails/{order_id}', [DriverController::class, 'getOrderDetails']);
-    Route::put('updateAvailabilityTofalse',[DriverController::class, 'updateAvailabilityToFalse']);
-    Route::put('updateAvailabilityTotrue',[DriverController::class, 'updateAvailabilityToTrue']);
+    Route::put('updateAvailabilityTofalse', [DriverController::class, 'updateAvailabilityToFalse']);
+    Route::put('updateAvailabilityTotrue', [DriverController::class, 'updateAvailabilityToTrue']);
 });
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
