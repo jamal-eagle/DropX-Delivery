@@ -59,7 +59,7 @@ Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])-
     Route::put('/updateResturantStatusClosed', [ResturantController::class, 'updateResturantStatusClose']);
     Route::put('/updateResturantStatusOpened', [ResturantController::class, 'updateResturantStatusOpen']);
     Route::get('/desplayMyMeals', [ResturantController::class, 'desplayMyMeals']);
-    Route::put('/updateMealStatusWithPrice/{mealId}', [ResturantController::class, 'toggleMealAvailability']);
+    Route::put('/updateMealStatusWithPrice/{mealId}', [ResturantController::class, 'updateMealStatusAndPrice']);
     Route::get('/getProfileResturant', [ResturantController::class, 'getResturantProfile']);
 });
 

@@ -440,7 +440,7 @@ class ResturantController extends Controller
     }
 
 
-    public function toggleMealAvailability(Request $request, $mealId)
+    public function updateMealStatusAndPrice(Request $request, $mealId)
     {
         $restaurant = Auth::user()->restaurant;
 
@@ -459,19 +459,35 @@ class ResturantController extends Controller
             ], 404);
         }
 
-        $meal->is_available = !$meal->is_available;
+        $validated = $request->validate([
+            'is_available' => 'nullable|boolean',
+            'new_price' => 'nullable|numeric|min:0',
+        ]);
+
+        $updatedFields = [];
+
+        if ($request->has('is_available')) {
+            $meal->is_available = $validated['is_available'];
+            $updatedFields[] = 'الحالة';
+        }
 
         if ($request->has('new_price')) {
-            $validated = $request->validate([
-                'new_price' => 'numeric|min:0',
-            ]);
             $meal->original_price = $validated['new_price'];
+            $updatedFields[] = 'السعر';
         }
+
+        if (empty($updatedFields)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'لم يتم إرسال أي تعديل.',
+            ], 400);
+        }
+
         $meal->save();
 
         return response()->json([
             'status' => true,
-            'message' => 'تم تحديث حالة الوجبة' . ($request->has('new_price') ? ' والسعر' : '') . ' بنجاح.',
+            'message' => 'تم تحديث ' . implode(' و', $updatedFields) . ' بنجاح.',
             'meal' => [
                 'id' => $meal->id,
                 'name' => $meal->name,
@@ -480,6 +496,7 @@ class ResturantController extends Controller
             ],
         ], 200);
     }
+
 
 
     public function getResturantProfile()

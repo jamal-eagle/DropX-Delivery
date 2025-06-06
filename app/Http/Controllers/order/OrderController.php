@@ -204,6 +204,8 @@ class OrderController extends Controller
             $restaurantId = null;
             $promo = null;
             $discount = 0;
+            $unavailableMeals = [];
+            $promoMessage = null;
 
             $mealIds = collect($request->meals)->pluck('id')->toArray();
             $meals = Meal::whereIn('id', $mealIds)->get()->keyBy('id');
@@ -215,13 +217,30 @@ class OrderController extends Controller
                     return response()->json(['message' => 'وجبة غير موجودة.'], 404);
                 }
 
+                if (!$meal->is_available) {
+                    $unavailableMeals[] = $meal->name;
+                }
+
                 if (!$restaurantId) {
                     $restaurantId = $meal->restaurant_id;
+
+                    $restaurant = Restaurant::find($restaurantId);
+                    if (!$restaurant || $restaurant->status !== 'open') {
+                        return response()->json(['message' => 'المطعم مغلق حالياً ولا يمكن تنفيذ الطلب.'], 403);
+                    }
                 } elseif ($restaurantId != $meal->restaurant_id) {
                     return response()->json(['message' => 'كامل الطلب يجب أن يكون من نفس المطعم.'], 400);
                 }
 
                 $totalPrice += $meal->original_price * $item['quantity'];
+            }
+
+            if (!empty($unavailableMeals)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'بعض الوجبات غير متاحة حالياً.',
+                    'unavailable_meals' => $unavailableMeals
+                ], 422);
             }
 
             $restaurantUser = Restaurant::with('user')->findOrFail($restaurantId)->user;
@@ -244,7 +263,6 @@ class OrderController extends Controller
             $calculatedFee = round($distance * $deliveryPerKm);
             $deliveryFee = max($minFee, $calculatedFee);
 
-
             if ($request->filled('promo_code')) {
                 $promo = PromoCode::where('code', $request->promo_code)
                     ->where('is_active', true)
@@ -252,28 +270,26 @@ class OrderController extends Controller
                     ->first();
 
                 if (!$promo) {
-                    return response()->json(['message' => 'كود الخصم غير صالح أو منتهي.'], 404);
+                    $promoMessage = 'كود الخصم غير صالح أو منتهي.';
+                } elseif ($totalPrice < $promo->min_order_value) {
+                    $promoMessage = 'قيمة الطلب أقل من الحد الأدنى لهذا الكود.';
+                } else {
+                    $alreadyUsed = DB::table('user_promo_codes')
+                        ->where('user_id', $user->id)
+                        ->where('promo_code_id', $promo->id)
+                        ->where('is_used', true)
+                        ->exists();
+
+                    if ($alreadyUsed) {
+                        $promoMessage = 'لقد استخدمت هذا الكود مسبقًا.';
+                    } else {
+                        $discount = $promo->discount_type === 'percentage'
+                            ? $totalPrice * ($promo->discount_value / 100)
+                            : $promo->discount_value;
+
+                        $totalPrice -= $discount;
+                    }
                 }
-
-                if ($totalPrice < $promo->min_order_value) {
-                    return response()->json(['message' => 'قيمة الطلب أقل من الحد الأدنى لهذا الكود.'], 422);
-                }
-
-                $alreadyUsed = DB::table('user_promo_codes')
-                    ->where('user_id', $user->id)
-                    ->where('promo_code_id', $promo->id)
-                    ->where('is_used', true)
-                    ->exists();
-
-                if ($alreadyUsed) {
-                    return response()->json(['message' => 'لقد استخدمت هذا الكود مسبقًا.'], 403);
-                }
-
-                $discount = $promo->discount_type === 'percentage'
-                    ? $totalPrice * ($promo->discount_value / 100)
-                    : $promo->discount_value;
-
-                $totalPrice -= $discount;
             }
 
             $barcodeText = 'order-' . Str::uuid();
@@ -304,7 +320,7 @@ class OrderController extends Controller
                 ]);
             }
 
-            if ($promo) {
+            if ($promo && !$promoMessage) {
                 DB::table('promo_codes')->where('id', $promo->id)->decrement('max_uses');
                 DB::table('user_promo_codes')->insert([
                     'user_id' => $user->id,
@@ -330,6 +346,7 @@ class OrderController extends Controller
                 'delivery_fee' => $deliveryFee,
                 'distance_km' => round($distance, 2),
                 'barcode_url' => asset('storage/' . $barcodePath),
+                'promo_note' => $promoMessage,
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -341,9 +358,6 @@ class OrderController extends Controller
             ], 500);
         }
     }
-
-
-
 
     public function updateOrder(UpdateOrderRequest $request, $order_id)
     {
