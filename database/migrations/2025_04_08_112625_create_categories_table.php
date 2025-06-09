@@ -14,7 +14,6 @@ return new class extends Migration
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
             $table->string('name', 100);
-            $table->foreignId('restaurant_id')->constrained()->onDelete('cascade');
             $table->timestamps();
         });
     }

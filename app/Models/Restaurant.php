@@ -36,13 +36,11 @@ class Restaurant extends Model
         return $this->hasMany(RestaurantMonthlyReport::class);
     }
 
-
-
-
     public function categories()
     {
-        return $this->hasMany(Category::class);
+        return $this->belongsToMany(Category::class, 'category_restaurant');
     }
+
 
     public function orders()
     {

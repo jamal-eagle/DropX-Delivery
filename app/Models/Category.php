@@ -14,10 +14,11 @@ class Category extends Model
         'restaurant_id',
     ];
 
-    public function restaurant()
+    public function restaurants()
     {
-        return $this->belongsTo(Restaurant::class);
+        return $this->belongsToMany(Restaurant::class, 'category_restaurant');
     }
+
 
 
     public function meals()

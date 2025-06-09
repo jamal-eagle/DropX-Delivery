@@ -21,13 +21,13 @@ class SearchController extends Controller
                 'message' => 'التطبيق لا يخدم هذه المدينة.',
             ], 404);
         }
+
         $restaurants = User::whereHas('areas', function ($query) use ($city) {
             $query->where('city', $city);
         })
             ->whereHas('restaurant')
             ->with([
-                'restaurant.meals.images',
-                'restaurant.categories.meals.images',
+                'restaurant.meals.images', // نحمل وجبات المطعم فقط
             ])
             ->get();
 
@@ -41,30 +41,33 @@ class SearchController extends Controller
         $formattedRestaurants = $restaurants->map(function ($user) {
             $restaurant = $user->restaurant;
 
+            // كل الوجبات التابعة لهذا المطعم
             $allMeals = $restaurant->meals->map(function ($meal) {
                 return [
                     'meal_id' => $meal->id,
                     'meal_name' => $meal->name,
                     'price' => $meal->original_price,
                     'is_available' => $meal->is_available,
-                    'images' => $meal->images->map(function ($img) {
-                        return asset('storage/' . $img->image);
-                    }),
+                    'images' => $meal->images->map(fn($img) => asset('storage/' . $img->image)),
                 ];
             });
 
-            $categories = $restaurant->categories->map(function ($category) {
+            // التصنيفات المرتبطة بهذا المطعم مع وجباتها التي تخص نفس المطعم
+            $categories = $restaurant->categories->map(function ($category) use ($restaurant) {
+                $meals = $category->meals()
+                    ->where('restaurant_id', $restaurant->id)
+                    ->with('images')
+                    ->get();
+
                 return [
                     'category_name' => $category->name,
-                    'meals' => $category->meals->map(function ($meal) {
+                    'meals' => $meals->map(function ($meal) {
                         return [
                             'meal_id' => $meal->id,
                             'meal_name' => $meal->name,
                             'price' => $meal->original_price,
                             'is_available' => $meal->is_available,
-                            'images' => $meal->images->map(function ($img) {
-                                return asset('storage/' . $img->image);
-                            }),
+                            'images' => $meal->images->map(fn($img) => asset('storage/' . $img->image)),
                         ];
                     }),
                 ];
@@ -85,10 +88,6 @@ class SearchController extends Controller
         ], 200);
     }
 
-
-
-
-
     public function searchByNameResturant(Request $request, $city)
     {
         $user = auth()->user();
@@ -98,7 +97,7 @@ class SearchController extends Controller
         if ($areaIds->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'التطبيق لا يخدم هذه  المدينة.',
+                'message' => 'التطبيق لا يخدم هذه المدينة.',
             ], 404);
         }
 
@@ -107,20 +106,19 @@ class SearchController extends Controller
         ]);
 
         $restaurantUsers = User::whereHas('areas', function ($query) use ($city) {
-            $query->where('areas.city', $city);
-        })
+                $query->where('areas.city', $city);
+            })
             ->where('fullname', 'LIKE', '%' . $request->name . '%')
             ->whereHas('restaurant')
             ->with([
                 'restaurant.meals.images',
-                'restaurant.categories.meals.images'
             ])
             ->get();
 
         if ($restaurantUsers->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'لا يوجد مطعم بهذا الاسم في المنطقة التي انت فيها',
+                'message' => 'لا يوجد مطعم بهذا الاسم في المنطقة التي أنت فيها.',
             ], 404);
         }
 
@@ -133,14 +131,15 @@ class SearchController extends Controller
                     'meal_name' => $meal->name,
                     'price' => $meal->original_price,
                     'is_available' => $meal->is_available,
-                    'images' => $meal->images->map(function ($img) {
-                        return asset('storage/' . $img->image);
-                    }),
+                    'images' => $meal->images->map(fn($img) => asset('storage/' . $img->image)),
                 ];
             });
 
             $categories = $restaurant->categories->map(function ($category) use ($restaurant) {
-                $meals = $category->meals->where('restaurant_id', $restaurant->id);
+                $meals = $category->meals()
+                    ->where('restaurant_id', $restaurant->id)
+                    ->with('images')
+                    ->get();
 
                 return [
                     'category_name' => $category->name,
@@ -150,18 +149,14 @@ class SearchController extends Controller
                             'meal_name' => $meal->name,
                             'price' => $meal->original_price,
                             'is_available' => $meal->is_available,
-                            'images' => $meal->images->map(function ($image) {
-                                return asset('storage/' . $image->image);
-                            }),
+                            'images' => $meal->images->map(fn($img) => asset('storage/' . $img->image)),
                         ];
-                    })->values(),
+                    }),
                 ];
             });
 
             return [
                 'restaurant_From_User' => $user,
-                'resturant_info' => $restaurant,
-                'all_meals' => $allMeals,
                 'categories' => $categories,
             ];
         });
@@ -172,8 +167,6 @@ class SearchController extends Controller
             'restaurants' => $formattedRestaurants,
         ], 200);
     }
-
-
 
 
     public function searchMealByName(Request $request, $city)
