@@ -1,6 +1,10 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AuthAdminController;
+use App\Http\Controllers\Admin\OrderAdminController;
+use App\Http\Controllers\Admin\PromoCodeController;
+use App\Http\Controllers\Admin\RestaurantCommissionController as AdminRestaurantCommissionController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\area\AreaController;
 use App\Http\Controllers\auth\AuthController;
@@ -8,7 +12,7 @@ use App\Http\Controllers\Driver\DriverController;
 use App\Http\Controllers\meal\MealController;
 use App\Http\Controllers\meal\SearchController;
 use App\Http\Controllers\order\OrderController;
-use App\Http\Controllers\resturant\RestaurantCommissionController;
+use App\Http\Controllers\Admin\RestaurantCommissionController;
 use App\Http\Controllers\resturant\ResturantController;
 use App\Http\Middleware\CheckResturant;
 use Illuminate\Http\Request;
@@ -75,11 +79,29 @@ Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckD
     Route::put('updateAvailabilityTotrue', [DriverController::class, 'updateAvailabilityToTrue']);
 });
 
+Route::post('/adminlogin', [AuthAdminController::class, 'login']); //
+
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
-    Route::post('/meal/store-meal', [MealController::class, 'storeMeal']);
-    Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']);
-    Route::post('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
+    Route::get('/getallcustomers', [AuthAdminController::class, 'getCustomers']); //
+    Route::put('/users/{userId}/updateuseractivation', [AuthAdminController::class, 'toggleActiveStatus']); //
+    Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']); //
+    Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']); //
+    Route::put('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']); //
+
     Route::post('/driver/storeDriver', [AdminController::class, 'storeDriver']);
     Route::put('/driver/resetDriverPassword', [AdminController::class, 'resetDriverPassword']);
-    Route::put('/restaurant/commission', [RestaurantCommissionController::class, 'updateCommission']);
+
+    Route::post('/restaurant/addcommission/{restaurant_id}', [RestaurantCommissionController::class, 'setRestaurantCommission']); //
+    Route::put('/restaurant/updatecommission/{restaurant_id}', [RestaurantCommissionController::class, 'updateCommission']); //
+    Route::put('/restaurant/updateDeliverySettings', [RestaurantCommissionController::class, 'updateDeliverySettings']); //
+    Route::get('/getPromoCode', [PromoCodeController::class, 'index']); //
+    Route::post('/AddPromoCode', [PromoCodeController::class, 'store']); //
+    Route::put('/UpdatePromoCode/{id}', [PromoCodeController::class, 'update']); //
+    Route::delete('/DeletePromoCode/{id}', [PromoCodeController::class, 'destroy']); //
+    Route::put('/updatePromoCodeActivation/{id}', [PromoCodeController::class, 'toggleActivation']); //
+
+    Route::get('/AllOrders', [OrderAdminController::class, 'desplayAllOrdars']); //
+    Route::get('/orderDetails/{id}', [OrderAdminController::class, 'DesplayDetailsForOrder']); //
+
+    Route::post('/meal/store-meal', [MealController::class, 'storeMeal']);
 });
