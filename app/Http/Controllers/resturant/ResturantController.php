@@ -35,31 +35,23 @@ class ResturantController extends Controller
 
     private function rotateDriverTurn($currentDriver): bool
     {
-        $userAreas = $currentDriver->user->areas;
+        $currentTurn = DriverAreaTurn::where('driver_id', $currentDriver->id)
+            ->where('is_active', true)
+            ->first();
 
-        if ($userAreas->isEmpty()) {
-            Log::warning("السائق ID {$currentDriver->id} غير مرتبط بأي منطقة.");
+        if (!$currentTurn) {
+            Log::error("❌ لم يتم العثور على دور للسائق ID {$currentDriver->id}.");
             return false;
         }
 
-        $driverCities = $userAreas->pluck('city')->map(fn($city) => strtolower(trim($city)))->unique()->toArray();
+        $areaId = $currentTurn->area_id;
 
         $allTurns = DriverAreaTurn::where('is_active', true)
-            ->whereHas('driver.user.areas', function ($query) use ($driverCities) {
-                $query->whereIn(DB::raw('LOWER(TRIM(city))'), $driverCities);
-            })
-            ->with(['driver.user.areas', 'driver.workingHours'])
+            ->where('area_id', $areaId)
+            ->with(['driver.user', 'driver.workingHours'])
             ->orderBy('turn_order')
             ->get();
 
-        $currentTurn = $allTurns->firstWhere('driver_id', $currentDriver->id);
-
-        if (!$currentTurn) {
-            Log::error("❌ لم يتم العثور على دور للسائق ID {$currentDriver->id} ضمن السائقين في المدن: " . implode(', ', $driverCities));
-            return false;
-        }
-
-        // فلترة السائقين المؤهلين (غيره)
         $eligibleTurns = $allTurns->filter(function ($turn) use ($currentDriver) {
             $driver = $turn->driver;
 
@@ -69,18 +61,16 @@ class ResturantController extends Controller
                 && $this->isDriverInWorkingHours($driver);
         });
 
-        // لا يوجد بديل مؤهل → لا تغيير
         if ($eligibleTurns->isEmpty()) {
             $currentTurn->update([
                 'is_next' => true,
                 'turn_assigned_at' => now(),
             ]);
 
-            Log::info("🚫 لا يمكن تدوير الدور: لا يوجد سائق آخر متاح.");
+            Log::info("🚫 لا يوجد سائق متاح في المنطقة ID {$areaId} لتدوير الدور.");
             return false;
         }
 
-        // تدوير الدور فعليًا
         $nextTurn = $eligibleTurns->first();
 
         $currentTurn->update([
@@ -93,7 +83,7 @@ class ResturantController extends Controller
             'turn_assigned_at' => now(),
         ]);
 
-        Log::info("✅ تم تدوير الدور من السائق ID {$currentDriver->id} إلى السائق ID {$nextTurn->driver_id}");
+        Log::info("✅ تم تدوير الدور من السائق ID {$currentDriver->id} إلى السائق ID {$nextTurn->driver_id} في المنطقة ID {$areaId}");
 
         return true;
     }

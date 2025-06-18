@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AdminDriverController;
 use App\Http\Controllers\Admin\AuthAdminController;
 use App\Http\Controllers\Admin\OrderAdminController;
 use App\Http\Controllers\Admin\PromoCodeController;
@@ -88,9 +89,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']); //
     Route::put('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']); //
 
-    Route::post('/driver/storeDriver', [AdminController::class, 'storeDriver']);
-    Route::put('/driver/resetDriverPassword', [AdminController::class, 'resetDriverPassword']);
-
     Route::post('/restaurant/addcommission/{restaurant_id}', [RestaurantCommissionController::class, 'setRestaurantCommission']); //
     Route::put('/restaurant/updatecommission/{restaurant_id}', [RestaurantCommissionController::class, 'updateCommission']); //
     Route::put('/restaurant/updateDeliverySettings', [RestaurantCommissionController::class, 'updateDeliverySettings']); //
@@ -102,6 +100,23 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
 
     Route::get('/AllOrders', [OrderAdminController::class, 'desplayAllOrdars']); //
     Route::get('/orderDetails/{id}', [OrderAdminController::class, 'DesplayDetailsForOrder']); //
+
+
+    Route::post('/driver/storeDriver', [AdminDriverController::class, 'storeDriver']);
+    Route::put('/driverandresturant/resetDriverOrResturantPassword', [AdminDriverController::class, 'resetDriverPassword']);
+    Route::get('/driver/desplayalldriver', [AdminDriverController::class, 'indexDrivers']);
+    Route::get('/driver/getDriversByCity/{city}', [AdminDriverController::class, 'getDriversByCity']);
+    Route::get('/driver/desplayalldriverActive', [AdminDriverController::class, 'getActiveWorkingDrivers']);
+    Route::get('/driver/getActiveWorkingDriversByCity/{city}', [AdminDriverController::class, 'getActiveWorkingDriversByCity']);
+    Route::get('/driver/getCurrentDriverInTurn/{city}', [AdminDriverController::class, 'getCurrentDriverInTurnByCity']);
+    Route::get('/driver/desplayInactiveButWorkingDrivers', [AdminDriverController::class, 'getInactiveButWorkingDrivers']);
+    Route::get('/driver/getInactiveButWorkingDriversByCityName/{city}', [AdminDriverController::class, 'getInactiveButWorkingDriversByCityName']);
+    Route::get('/driver/today-deleveryorders/{driverId}', [AdminDriverController::class, 'getTodayCompletedOrdersForDriver']);
+    Route::get('/driver/today-ondeleveryorders/{driverId}', [AdminDriverController::class, 'getTodayOnDeliveryOrdersForDriver']);
+    Route::get('/driver/today-pendingorders/{driverId}', [AdminDriverController::class, 'getTodayPendingOrdersForDriver']);
+
+
+
 
     Route::post('/meal/store-meal', [MealController::class, 'storeMeal']);
 });
