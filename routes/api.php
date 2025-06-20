@@ -129,10 +129,14 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::get('/resturant/getRestaurantOrdersByStatus/{resturant_Id}', [AdminResturantController::class, 'getRestaurantOrdersByStatus']);
     Route::post('/restaurant/addcommission/{restaurant_id}', [RestaurantCommissionController::class, 'setRestaurantCommission']); //
     Route::put('/restaurant/updatecommission/{restaurant_id}', [RestaurantCommissionController::class, 'updateCommission']); //
+    Route::post('/meal/AddMeal/{resturant_id}', [AdminMealController::class, 'storeMeal']);
+    Route::post('/meal/updateMeal/{meal_id}', [AdminMealController::class, 'updateMeal']);
+    Route::delete('/meal/deleteMeal/{meal_id}', [AdminMealController::class, 'deleteMeal']);
     Route::get('/fee/getadminDailyfeesfromdriver/{year}/{month}/{day}', [AdminFeeController::class, 'getAdminDailyEarnings']);
     Route::get('/fee/getadminDailyfeesfromdriver/{year}/{month}', [AdminFeeController::class, 'getAdminMonthlyEarnings']);
     Route::get('/fee/getAdminDailyEarningsFromRestaurants/{year}/{month}/{day}', [AdminFeeController::class, 'getAdminDailyEarningsFromRestaurants']);
     Route::get('/fee/getAdminMonthlyEarningsFromRestaurants/{year}/{month}', [AdminFeeController::class, 'getAdminMonthlyEarningsFromRestaurants']);
-    Route::post('/meal/AddMeal/{resturant_id}', [AdminMealController::class, 'storeMeal']);
+
+
     Route::put('/restaurant/updateDeliverySettings', [RestaurantCommissionController::class, 'updateDeliverySettings']);
 });

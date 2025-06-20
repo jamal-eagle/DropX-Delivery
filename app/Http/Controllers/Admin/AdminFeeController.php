@@ -42,7 +42,7 @@ class AdminFeeController extends Controller
     {
         $date = Carbon::createFromDate($year, $month, $day)->toDateString();
 
-        $total = RestaurantDailyReport::where('date', $date)->sum('admin_earnings');
+        $total = RestaurantDailyReport::where('date', $date)->sum('system_earnings');
 
         return response()->json([
             'status' => true,
@@ -55,7 +55,7 @@ class AdminFeeController extends Controller
     {
         $monthDate = Carbon::createFromDate($year, $month, 1)->format('Y-m');
 
-        $total = RestaurantMonthlyReport::where('month_date', $monthDate)->sum('admin_earnings');
+        $total = RestaurantMonthlyReport::where('month_date', $monthDate)->sum('system_earnings');
 
         return response()->json([
             'status' => true,
