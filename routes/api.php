@@ -2,6 +2,9 @@
 
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminDriverController;
+use App\Http\Controllers\admin\AdminFeeController;
+use App\Http\Controllers\admin\AdminMealController;
+use App\Http\Controllers\admin\AdminResturantController;
 use App\Http\Controllers\Admin\AuthAdminController;
 use App\Http\Controllers\Admin\OrderAdminController;
 use App\Http\Controllers\Admin\PromoCodeController;
@@ -89,9 +92,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']); //
     Route::put('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']); //
 
-    Route::post('/restaurant/addcommission/{restaurant_id}', [RestaurantCommissionController::class, 'setRestaurantCommission']); //
-    Route::put('/restaurant/updatecommission/{restaurant_id}', [RestaurantCommissionController::class, 'updateCommission']); //
-    Route::put('/restaurant/updateDeliverySettings', [RestaurantCommissionController::class, 'updateDeliverySettings']); //
     Route::get('/getPromoCode', [PromoCodeController::class, 'index']); //
     Route::post('/AddPromoCode', [PromoCodeController::class, 'store']); //
     Route::put('/UpdatePromoCode/{id}', [PromoCodeController::class, 'update']); //
@@ -114,9 +114,25 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::get('/driver/today-deleveryorders/{driverId}', [AdminDriverController::class, 'getTodayCompletedOrdersForDriver']);
     Route::get('/driver/today-ondeleveryorders/{driverId}', [AdminDriverController::class, 'getTodayOnDeliveryOrdersForDriver']);
     Route::get('/driver/today-pendingorders/{driverId}', [AdminDriverController::class, 'getTodayPendingOrdersForDriver']);
+    Route::get('/driver/getDriverDailyReport/{driverId}/{year}/{month}/{day}', [AdminDriverController::class, 'getDriverDailyReport']);
+    Route::get('/driver/getDriverMonthlyReport/{driverId}/{year}/{month}', [AdminDriverController::class, 'getDriverMonthlyReport']);
 
-
-
-
-    Route::post('/meal/store-meal', [MealController::class, 'storeMeal']);
+    Route::post('/resturant/storeresturant', [AdminResturantController::class, 'storeRestaurant']);
+    Route::put('/resturant/updateRestaurant/{restaurant_id}', [AdminResturantController::class, 'updateRestaurant']);
+    Route::get('/resturant/getAllRestaurants', [AdminResturantController::class, 'getAllRestaurants']);
+    Route::get('/resturant/getRestaurantsByCity/{city}', [AdminResturantController::class, 'getRestaurantsByCity']);
+    Route::get('/resturant/getRestaurantDetailsWithMeals/{restaurant_id}', [AdminResturantController::class, 'getRestaurantDetailsWithMeals']);
+    Route::get('/resturant/getDeliveredOrdersByDayForresturant/{resturant_id}/{year}/{month}/{day}', [AdminResturantController::class, 'getDeliveredOrdersByDayForresturant']);
+    Route::get('/resturant/getDeliveredOrdersForRestaurantByMonth/{resturant_id}/{year}/{month}', [AdminResturantController::class, 'getDeliveredOrdersForRestaurantByMonth']);
+    Route::get('/resturant/getRestaurantDailyReport/{resturant_id}/{year}/{month}/{day}', [AdminResturantController::class, 'getRestaurantDailyReport']);
+    Route::get('/resturant/getRestaurantMonthlyReport/{resturant_id}/{year}/{month}', [AdminResturantController::class, 'getRestaurantMonthlyReport']);
+    Route::get('/resturant/getRestaurantOrdersByStatus/{resturant_Id}', [AdminResturantController::class, 'getRestaurantOrdersByStatus']);
+    Route::post('/restaurant/addcommission/{restaurant_id}', [RestaurantCommissionController::class, 'setRestaurantCommission']); //
+    Route::put('/restaurant/updatecommission/{restaurant_id}', [RestaurantCommissionController::class, 'updateCommission']); //
+    Route::get('/fee/getadminDailyfeesfromdriver/{year}/{month}/{day}', [AdminFeeController::class, 'getAdminDailyEarnings']);
+    Route::get('/fee/getadminDailyfeesfromdriver/{year}/{month}', [AdminFeeController::class, 'getAdminMonthlyEarnings']);
+    Route::get('/fee/getAdminDailyEarningsFromRestaurants/{year}/{month}/{day}', [AdminFeeController::class, 'getAdminDailyEarningsFromRestaurants']);
+    Route::get('/fee/getAdminMonthlyEarningsFromRestaurants/{year}/{month}', [AdminFeeController::class, 'getAdminMonthlyEarningsFromRestaurants']);
+    Route::post('/meal/AddMeal/{resturant_id}', [AdminMealController::class, 'storeMeal']);
+    Route::put('/restaurant/updateDeliverySettings', [RestaurantCommissionController::class, 'updateDeliverySettings']);
 });

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\Driver;
 use App\Models\DriverAreaTurn;
+use App\Models\DriverDailyReport;
+use App\Models\DriverMonthlyReport;
 use App\Models\DriverWorkingHour;
 use App\Models\Order;
 use App\Models\User;
@@ -42,6 +44,7 @@ class AdminDriverController extends Controller
                 'password' => Hash::make($request->password),
                 'user_type' => 'driver',
                 'is_active' => true,
+                'is_verified' => true,
             ]);
 
             $driver = Driver::create([
@@ -346,6 +349,57 @@ class AdminDriverController extends Controller
             'status' => true,
             'message' => 'قائمة الطلبات التي لدى المطعم  لهذا اليوم',
             'data' => $orders
+        ]);
+    }
+
+
+    public function getDriverDailyReport($driverId, $year, $month, $day)
+    {
+        $date = Carbon::createFromDate($year, $month, $day)->toDateString();
+
+        $report = DriverDailyReport::where('driver_id', $driverId)
+            ->where('date', $date)
+            ->first();
+
+        if (!$report) {
+            return response()->json([
+                'status' => false,
+                'message' => "لا يوجد تقرير للسائق في هذا التاريخ",
+            ]);
+        }
+
+        return response()->json([
+            'status' => true,
+            'driver_id' => $driverId,
+            'date' => $date,
+            'total_orders' => $report->total_orders,
+            'total_amount' => $report->total_amount,
+            'driver_earnings' => $report->driver_earnings,
+        ]);
+    }
+
+    public function getDriverMonthlyReport($driverId, $year, $month)
+    {
+        $monthFormatted = sprintf('%04d-%02d', $year, $month); // مثل 2025-06
+
+        $report = DriverMonthlyReport::where('driver_id', $driverId)
+            ->where('month_date', $monthFormatted)
+            ->first();
+
+        if (!$report) {
+            return response()->json([
+                'status' => false,
+                'message' => "لا يوجد تقرير شهري للسائق لهذا الشهر",
+            ]);
+        }
+
+        return response()->json([
+            'status' => true,
+            'driver_id' => $driverId,
+            'month_date' => $monthFormatted,
+            'total_orders' => $report->total_orders,
+            'total_amount' => $report->total_delivery_fees,
+            'driver_earnings' => $report->driver_earnings,
         ]);
     }
 }
