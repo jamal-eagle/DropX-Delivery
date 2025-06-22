@@ -68,7 +68,7 @@ class AuthAdminController extends Controller
         }
 
         $customers = User::where('user_type', 'customer')
-            ->select('id', 'fullname', 'phone', 'location_text', 'created_at')
+            ->select('id', 'fullname', 'phone', 'location_text', 'is_active', 'created_at')
             ->latest()
             ->get();
 

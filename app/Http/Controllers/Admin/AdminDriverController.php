@@ -96,19 +96,30 @@ class AdminDriverController extends Controller
         }
     }
 
-    public function resetDriverPassword(Request $request)
+    public function resetDriverPassword(Request $request, $driverId)
     {
         $request->validate([
-            'driver_user_id' => 'required|exists:users,id',
             'new_password' => 'required|string|min:6'
         ]);
 
-        $user = User::find($request->driver_user_id);
+        $driver = Driver::find($driverId);
+
+        if (!$driver || !$driver->user_id) {
+            return response()->json(['message' => 'لا يوجد مستخدم مرتبط بهذا السائق'], 404);
+        }
+
+        $user = User::find($driver->user_id);
+
+        if (!$user) {
+            return response()->json(['message' => 'المستخدم غير موجود'], 404);
+        }
+
         $user->password = Hash::make($request->new_password);
         $user->save();
 
         return response()->json(['message' => 'تم تغيير كلمة المرور بنجاح'], 200);
     }
+
 
 
     public function indexDrivers()

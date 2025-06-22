@@ -83,27 +83,27 @@ Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckD
     Route::put('updateAvailabilityTotrue', [DriverController::class, 'updateAvailabilityToTrue']);
 });
 
-Route::post('/adminlogin', [AuthAdminController::class, 'login']); //
+Route::post('/adminlogin', [AuthAdminController::class, 'login']);
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
-    Route::get('/getallcustomers', [AuthAdminController::class, 'getCustomers']); //
+    Route::get('/getallcustomers', [AuthAdminController::class, 'getCustomers']);
     Route::put('/users/{userId}/updateuseractivation', [AuthAdminController::class, 'toggleActiveStatus']); //
-    Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']); //
-    Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']); //
-    Route::put('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']); //
+    Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);
+    Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']);
+    Route::post('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
 
-    Route::get('/getPromoCode', [PromoCodeController::class, 'index']); //
-    Route::post('/AddPromoCode', [PromoCodeController::class, 'store']); //
-    Route::put('/UpdatePromoCode/{id}', [PromoCodeController::class, 'update']); //
-    Route::delete('/DeletePromoCode/{id}', [PromoCodeController::class, 'destroy']); //
-    Route::put('/updatePromoCodeActivation/{id}', [PromoCodeController::class, 'toggleActivation']); //
+    Route::get('/getPromoCode', [PromoCodeController::class, 'index']);
+    Route::post('/AddPromoCode', [PromoCodeController::class, 'store']);
+    Route::put('/UpdatePromoCode/{id}', [PromoCodeController::class, 'update']);
+    Route::delete('/DeletePromoCode/{id}', [PromoCodeController::class, 'destroy']);
+    Route::put('/updatePromoCodeActivation/{id}', [PromoCodeController::class, 'toggleActivation']);
 
-    Route::get('/AllOrders', [OrderAdminController::class, 'desplayAllOrdars']); //
-    Route::get('/orderDetails/{id}', [OrderAdminController::class, 'DesplayDetailsForOrder']); //
+    Route::get('/AllOrders', [OrderAdminController::class, 'desplayAllOrdars']);
+    Route::get('/orderDetails/{id}', [OrderAdminController::class, 'DesplayDetailsForOrder']);
 
 
     Route::post('/driver/storeDriver', [AdminDriverController::class, 'storeDriver']);
-    Route::put('/driverandresturant/resetDriverOrResturantPassword', [AdminDriverController::class, 'resetDriverPassword']);
+    Route::put('/driverandresturant/resetDriverOrResturantPassword/{driverId}', [AdminDriverController::class, 'resetDriverPassword']);
     Route::get('/driver/desplayalldriver', [AdminDriverController::class, 'indexDrivers']);
     Route::get('/driver/getDriversByCity/{city}', [AdminDriverController::class, 'getDriversByCity']);
     Route::get('/driver/desplayalldriverActive', [AdminDriverController::class, 'getActiveWorkingDrivers']);
@@ -118,6 +118,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::get('/driver/getDriverMonthlyReport/{driverId}/{year}/{month}', [AdminDriverController::class, 'getDriverMonthlyReport']);
 
     Route::post('/resturant/storeresturant', [AdminResturantController::class, 'storeRestaurant']);
+    Route::put('/driverandresturant/resetRestaurantPassword/{resturant_id}', [AdminResturantController::class, 'resetRestaurantPassword']);
     Route::put('/resturant/updateRestaurant/{restaurant_id}', [AdminResturantController::class, 'updateRestaurant']);
     Route::get('/resturant/getAllRestaurants', [AdminResturantController::class, 'getAllRestaurants']);
     Route::get('/resturant/getRestaurantsByCity/{city}', [AdminResturantController::class, 'getRestaurantsByCity']);

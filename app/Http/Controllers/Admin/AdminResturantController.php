@@ -84,6 +84,30 @@ class AdminResturantController extends Controller
         }
     }
 
+    public function resetRestaurantPassword(Request $request, $restaurantId)
+    {
+        $request->validate([
+            'new_password' => 'required|string|min:6'
+        ]);
+
+        $restaurant = Restaurant::find($restaurantId);
+
+        if (!$restaurant || !$restaurant->user_id) {
+            return response()->json(['message' => 'لا يوجد مستخدم مرتبط بهذا المطعم'], 404);
+        }
+
+        $user = User::find($restaurant->user_id);
+
+        if (!$user) {
+            return response()->json(['message' => 'المستخدم غير موجود'], 404);
+        }
+
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json(['message' => 'تم تغيير كلمة المرور بنجاح'], 200);
+    }
+
     public function updateRestaurant(Request $request, $restaurantId)
     {
         $request->validate([
@@ -301,6 +325,7 @@ class AdminResturantController extends Controller
             'restaurant_earnings' => $report->restaurant_earnings,
         ]);
     }
+
     public function getRestaurantMonthlyReport($restaurantId, $year, $month)
     {
         $monthString = sprintf('%04d-%02d', $year, $month);
