@@ -4,6 +4,7 @@ namespace App\Console;
 
 use App\Jobs\GenerateDailyRestaurantReports;
 use App\Jobs\GenerateMonthlyRestaurantReports;
+use App\Jobs\UpdateDriversTurnsJob;
 use App\Jobs\UpdateRestaurantStatusJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -23,8 +24,13 @@ class Kernel extends ConsoleKernel
         $schedule->command('drivers:generate-monthly-report')->monthlyOn(1, '00:07');
 
 
-        $schedule->job(new UpdateRestaurantStatusJob('open'))->dailyAt('08:00');
-        $schedule->job(new UpdateRestaurantStatusJob('close'))->dailyAt('23:30');
+        $schedule->job(new UpdateRestaurantStatusJob)
+            ->hourly()
+            ->between('07:00', '23:00');
+
+        $schedule->job(new UpdateDriversTurnsJob())
+        ->everyThirtyMinutes()
+        ->between('07:00', '23:59');
     }
 
     /**

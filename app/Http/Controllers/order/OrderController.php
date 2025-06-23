@@ -717,4 +717,29 @@ class OrderController extends Controller
             'meals' => $formattedMeals
         ], 200);
     }
+
+    public function scanOrderBarcodeByUser($orderId)
+    {
+        $userId = auth()->id();
+
+        $order = Order::find($orderId);
+
+        if (!$order) {
+            return response()->json(['message' => 'الطلب غير موجود.'], 404);
+        }
+
+        if ($order->user_id !== $userId) {
+            return response()->json(['message' => 'هذا الطلب لا يخصك.'], 403);
+        }
+
+        if ($order->status !== 'on_delivery') {
+            return response()->json(['message' => 'لا يمكن تأكيد التسليم في هذه الحالة.'], 400);
+        }
+
+        $order->update([
+            'status' => 'delivered',
+        ]);
+
+        return response()->json(['message' => '✅ تم تأكيد تسليم الطلب.'], 200);
+    }
 }

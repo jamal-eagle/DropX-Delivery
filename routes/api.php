@@ -55,6 +55,7 @@ Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCus
     Route::get('/getCompletedOrdersForUser', [OrderController::class, 'getCompletedOrdersForUser']); //
     Route::get('/getMealsByCity/{city}', [OrderController::class, 'getMealsByCity']); //
     Route::get('/getAllMealsOnMyAppletion', [OrderController::class, 'getAllMeals']); //
+    Route::put('scanOrderBarcodeByUser/{order_id}', [OrderController::class, 'scanOrderBarcodeByUser']);
 });
 
 Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])->group(function () {
@@ -81,6 +82,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckD
     Route::get('orders/getOrderDetails/{order_id}', [DriverController::class, 'getOrderDetails']);
     Route::put('updateAvailabilityTofalse', [DriverController::class, 'updateAvailabilityToFalse']);
     Route::put('updateAvailabilityTotrue', [DriverController::class, 'updateAvailabilityToTrue']);
+    Route::put('scanOrderBarcodeByDriver/{order_id}', [DriverController::class, 'scanOrderByDriver']);
 });
 
 Route::post('/adminlogin', [AuthAdminController::class, 'login']);

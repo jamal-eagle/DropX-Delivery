@@ -321,4 +321,33 @@ class DriverController extends Controller
             ], 500);
         }
     }
+
+    public function scanOrderByDriver($orderId)
+    {
+        $driver = Driver::where('user_id', auth()->id())->first();
+
+        if (!$driver) {
+            return response()->json(['message' => 'لم يتم العثور على سائق مرتبط بهذا المستخدم.'], 404);
+        }
+
+        $order = Order::find($orderId);
+
+        if (!$order) {
+            return response()->json(['message' => 'الطلب غير موجود.'], 404);
+        }
+
+        if ($order->driver_id !== $driver->id) {
+            return response()->json(['message' => 'أنت لست السائق الموكل بهذا الطلب.'], 403);
+        }
+
+        if ($order->status !== 'preparing') {
+            return response()->json(['message' => 'لا يمكن مسح الطلب في حالته الحالية.'], 400);
+        }
+
+        $order->update([
+            'status' => 'on_delivery',
+        ]);
+
+        return response()->json(['message' => '✅ تم تحويل حالة الطلب إلى on_delivery.'], 200);
+    }
 }

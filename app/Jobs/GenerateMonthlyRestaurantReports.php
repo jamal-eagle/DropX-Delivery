@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class GenerateMonthlyRestaurantReports implements ShouldQueue
 {
@@ -49,7 +50,6 @@ class GenerateMonthlyRestaurantReports implements ShouldQueue
                 continue;
             }
 
-            // تجميع القيم
             $totalOrders = $dailyReports->sum('total_orders');
             $totalAmount = $dailyReports->sum('total_amount');
             $systemEarnings = $dailyReports->sum('system_earnings');
