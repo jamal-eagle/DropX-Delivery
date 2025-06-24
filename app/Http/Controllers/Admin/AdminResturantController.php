@@ -20,16 +20,16 @@ class AdminResturantController extends Controller
     public function storeRestaurant(Request $request)
     {
         $request->validate([
-            'fullname'      => 'required|string|max:75',
-            'phone'         => 'required|string|max:15|unique:users,phone',
-            'password'      => 'required|string|min:6',
-            'city'          => 'required|string|max:100',
-            'description'   => 'nullable|string',
+            'fullname'            => 'required|string|max:75',
+            'phone'               => 'required|string|max:15|unique:users,phone',
+            'password'            => 'required|string|min:6',
+            'city'                => 'required|string|max:100',
+            'description'         => 'nullable|string',
             'working_hours_start' => 'nullable|date_format:H:i',
             'working_hours_end'   => 'nullable|date_format:H:i|after:working_hours_start',
-            'commission_type' => 'required|in:percentage,fixed',
-            'commission_value' => 'required|numeric|min:0',
-            'image' => 'nullable|string|max:255',
+            'commission_type'     => 'required|in:percentage,fixed',
+            'commission_value'    => 'required|numeric|min:0',
+            'image'               => 'nullable|image|mimes:jpg,jpeg,png,svg,webp|max:2048',
         ]);
 
         try {
@@ -38,17 +38,22 @@ class AdminResturantController extends Controller
             $area = Area::firstOrCreate(['city' => $request->city]);
 
             $user = User::create([
-                'fullname'  => $request->fullname,
-                'phone'     => $request->phone,
-                'password'  => Hash::make($request->password),
-                'user_type' => 'restaurant',
-                'is_active' => true,
+                'fullname'    => $request->fullname,
+                'phone'       => $request->phone,
+                'password'    => Hash::make($request->password),
+                'user_type'   => 'restaurant',
+                'is_active'   => true,
                 'is_verified' => true,
             ]);
 
+            $imagePath = null;
+            if ($request->hasFile('image')) {
+                $imagePath = $request->file('image')->store('restaurants', 'public');
+            }
+
             $restaurant = Restaurant::create([
                 'user_id'             => $user->id,
-                'image'               => $request->image,
+                'image'               => $imagePath,
                 'description'         => $request->description,
                 'working_hours_start' => $request->working_hours_start,
                 'working_hours_end'   => $request->working_hours_end,
@@ -73,13 +78,14 @@ class AdminResturantController extends Controller
             return response()->json([
                 'message'    => '✅ تم إنشاء حساب المطعم بنجاح.',
                 'user'       => $user,
-                'restaurant' => $restaurant
+                'restaurant' => $restaurant,
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'message' => '❌ حدث خطأ أثناء إنشاء المطعم.',
-                'error'   => $e->getMessage()
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
