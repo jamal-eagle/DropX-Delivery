@@ -15,28 +15,29 @@ class RestaurantCommissionController extends Controller
     {
         if (auth()->user()->user_type !== 'admin') {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'غير مصرح لك بتنفيذ هذا الإجراء.',
             ], 403);
         }
 
         $request->validate([
-            'type' => 'required|in:percentage,fixed',
+            'type'  => 'required|in:percentage,fixed',
             'value' => 'required|numeric|min:0',
         ]);
 
-        RestaurantCommission::where('restaurant_id', $request->restaurant_id)->delete();
+        $commission = RestaurantCommission::updateOrCreate(
+            ['restaurant_id' => $restaurant_id],
+            [
+                'type'  => $request->type,
+                'value' => $request->value,
+            ]
+        );
 
-        $commission = RestaurantCommission::create([
-            'restaurant_id' => $restaurant_id,
-            'type' => $request->type,
-            'value' => $request->value,
-        ]);
-
+        // 4) الاستجابة
         return response()->json([
-            'status' => true,
-            'message' => 'تم تعيين النسبة للمطعم بنجاح.',
-            'data' => $commission,
+            'status'  => true,
+            'message' => '✅ تم تعيين النسبة للمطعم بنجاح.',
+            'data'    => $commission,
         ], 200);
     }
 
@@ -98,5 +99,4 @@ class RestaurantCommissionController extends Controller
             'data' => $settings,
         ]);
     }
-
 }

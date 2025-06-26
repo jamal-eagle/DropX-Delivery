@@ -19,7 +19,7 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('drivers:rotate-daily')->dailyAt('06:00');
         $schedule->job(new GenerateDailyRestaurantReports)->dailyAt('00:05');
-        $schedule->job(new GenerateMonthlyRestaurantReports)->monthlyOn(1, '00:10');
+        $schedule->job(new GenerateMonthlyRestaurantReports)->monthlyOn(1, '00:30');
         $schedule->command('drivers:generate-daily-reports')->dailyAt('00:01');
         $schedule->command('drivers:generate-monthly-report')->monthlyOn(1, '00:07');
 
@@ -29,8 +29,8 @@ class Kernel extends ConsoleKernel
             ->between('07:00', '23:00');
 
         $schedule->job(new UpdateDriversTurnsJob())
-        ->everyThirtyMinutes()
-        ->between('07:00', '23:59');
+            ->everyThirtyMinutes()
+            ->between('07:00', '23:59');
     }
 
     /**

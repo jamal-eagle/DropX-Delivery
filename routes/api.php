@@ -89,23 +89,23 @@ Route::post('/adminlogin', [AuthAdminController::class, 'login']);
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
     Route::get('/getallcustomers', [AuthAdminController::class, 'getCustomers']);
-    Route::put('/users/{userId}/updateuseractivation', [AuthAdminController::class, 'toggleActiveStatus']); //
+    Route::post('/users/{userId}/updateuseractivation', [AuthAdminController::class, 'toggleActiveStatus']); //
     Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);
     Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']);
     Route::post('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
 
     Route::get('/getPromoCode', [PromoCodeController::class, 'index']);
     Route::post('/AddPromoCode', [PromoCodeController::class, 'store']);
-    Route::put('/UpdatePromoCode/{id}', [PromoCodeController::class, 'update']);
+    Route::post('/UpdatePromoCode/{id}', [PromoCodeController::class, 'update']);
     Route::delete('/DeletePromoCode/{id}', [PromoCodeController::class, 'destroy']);
-    Route::put('/updatePromoCodeActivation/{id}', [PromoCodeController::class, 'toggleActivation']);
+    Route::post('/updatePromoCodeActivation/{id}', [PromoCodeController::class, 'toggleActivation']);
 
     Route::get('/AllOrders', [OrderAdminController::class, 'desplayAllOrdars']);
     Route::get('/orderDetails/{id}', [OrderAdminController::class, 'DesplayDetailsForOrder']);
 
 
     Route::post('/driver/storeDriver', [AdminDriverController::class, 'storeDriver']);
-    Route::put('/driverandresturant/resetDriverOrResturantPassword/{driverId}', [AdminDriverController::class, 'resetDriverPassword']);
+    Route::post('/driverandresturant/resetDriverOrResturantPassword/{driverId}', [AdminDriverController::class, 'resetDriverPassword']);
     Route::get('/driver/desplayalldriver', [AdminDriverController::class, 'indexDrivers']);
     Route::get('/driver/getDriversByCity/{city}', [AdminDriverController::class, 'getDriversByCity']);
     Route::get('/driver/desplayalldriverActive', [AdminDriverController::class, 'getActiveWorkingDrivers']);
@@ -120,8 +120,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::get('/driver/getDriverMonthlyReport/{driverId}/{year}/{month}', [AdminDriverController::class, 'getDriverMonthlyReport']);
 
     Route::post('/resturant/storeresturant', [AdminResturantController::class, 'storeRestaurant']);
-    Route::put('/driverandresturant/resetRestaurantPassword/{resturant_id}', [AdminResturantController::class, 'resetRestaurantPassword']);
-    Route::put('/resturant/updateRestaurant/{restaurant_id}', [AdminResturantController::class, 'updateRestaurant']);
+    Route::post('/driverandresturant/resetRestaurantPassword/{resturant_id}', [AdminResturantController::class, 'resetRestaurantPassword']);
+    Route::post('/resturant/updateRestaurant/{restaurant_id}', [AdminResturantController::class, 'updateRestaurant']);
     Route::get('/resturant/getAllRestaurants', [AdminResturantController::class, 'getAllRestaurants']);
     Route::get('/resturant/getRestaurantsByCity/{city}', [AdminResturantController::class, 'getRestaurantsByCity']);
     Route::get('/resturant/getRestaurantDetailsWithMeals/{restaurant_id}', [AdminResturantController::class, 'getRestaurantDetailsWithMeals']);
@@ -131,15 +131,16 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::get('/resturant/getRestaurantMonthlyReport/{resturant_id}/{year}/{month}', [AdminResturantController::class, 'getRestaurantMonthlyReport']);
     Route::get('/resturant/getRestaurantOrdersByStatus/{resturant_Id}', [AdminResturantController::class, 'getRestaurantOrdersByStatus']);
     Route::post('/restaurant/addcommission/{restaurant_id}', [RestaurantCommissionController::class, 'setRestaurantCommission']); //
-    Route::put('/restaurant/updatecommission/{restaurant_id}', [RestaurantCommissionController::class, 'updateCommission']); //
+    Route::post('/restaurant/updatecommission/{restaurant_id}', [RestaurantCommissionController::class, 'updateCommission']); //
     Route::post('/meal/AddMeal/{resturant_id}', [AdminMealController::class, 'storeMeal']);
     Route::post('/meal/updateMeal/{meal_id}', [AdminMealController::class, 'updateMeal']);
     Route::delete('/meal/deleteMeal/{meal_id}', [AdminMealController::class, 'deleteMeal']);
+
     Route::get('/fee/getadminDailyfeesfromdriver/{year}/{month}/{day}', [AdminFeeController::class, 'getAdminDailyEarnings']);
-    Route::get('/fee/getadminDailyfeesfromdriver/{year}/{month}', [AdminFeeController::class, 'getAdminMonthlyEarnings']);
+    Route::get('/fee/getadminMonthlyfeesfromdriver/{year}/{month}', [AdminFeeController::class, 'getAdminMonthlyEarnings']);
     Route::get('/fee/getAdminDailyEarningsFromRestaurants/{year}/{month}/{day}', [AdminFeeController::class, 'getAdminDailyEarningsFromRestaurants']);
     Route::get('/fee/getAdminMonthlyEarningsFromRestaurants/{year}/{month}', [AdminFeeController::class, 'getAdminMonthlyEarningsFromRestaurants']);
 
 
-    Route::put('/restaurant/updateDeliverySettings', [RestaurantCommissionController::class, 'updateDeliverySettings']);
+    Route::post('/restaurant/updateDeliverySettings', [RestaurantCommissionController::class, 'updateDeliverySettings']);
 });

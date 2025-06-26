@@ -22,14 +22,13 @@ class PromoCodeController extends Controller
 
 
         $promo = PromoCode::create($request->only([
-        'code',
-        'discount_type',
-        'discount_value',
-        'min_order_value',
-        'max_uses',
-        'expiry_date',
-    ]));
-
+            'code',
+            'discount_type',
+            'discount_value',
+            'min_order_value',
+            'max_uses',
+            'expiry_date',
+        ]));
 
         return response()->json([
             'status' => true,
@@ -67,7 +66,6 @@ class PromoCodeController extends Controller
         ], 201);
     }
 
-
     public function destroy($id)
     {
         $promo = PromoCode::findOrFail($id);
@@ -78,6 +76,7 @@ class PromoCodeController extends Controller
             'message' => 'تم حذف كود الخصم بنجاح',
         ], 204);
     }
+
     public function index()
     {
         $promos = PromoCode::get();

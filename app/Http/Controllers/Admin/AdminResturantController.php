@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class AdminResturantController extends Controller
 {
@@ -29,7 +30,7 @@ class AdminResturantController extends Controller
             'working_hours_end'   => 'nullable|date_format:H:i|after:working_hours_start',
             'commission_type'     => 'required|in:percentage,fixed',
             'commission_value'    => 'required|numeric|min:0',
-            'image'               => 'nullable|image|mimes:jpg,jpeg,png,svg,webp|max:2048',
+            'image'               => 'required|image|mimes:jpg,jpeg,png,svg,webp|max:2048',
         ]);
 
         try {
@@ -116,80 +117,88 @@ class AdminResturantController extends Controller
 
     public function updateRestaurant(Request $request, $restaurantId)
     {
+        $restaurant = Restaurant::with('user')->findOrFail($restaurantId);
+
         $request->validate([
-            'fullname' => 'sometimes|string|max:75',
-            'phone' => 'sometimes|string|max:15|unique:users,phone',
-            'city' => 'sometimes|string|max:100',
-            'description' => 'nullable|string',
-            'commission_type' => 'sometimes|in:percentage,fixed',
-            'commission_value' => 'sometimes|numeric|min:0',
-            'image' => 'nullable|string',
+            'fullname'          => 'sometimes|string|max:75',
+            'phone'             => 'sometimes|string|max:15|unique:users,phone,' . $restaurant->user->id, // تجاهل التحقق لنفس المستخدم
+            'city'              => 'sometimes|string|max:100',
+            'description'       => 'nullable|string',
+            'commission_type'   => 'sometimes|in:percentage,fixed',
+            'commission_value'  => 'sometimes|numeric|min:0',
+            'image'             => 'nullable|image|max:2048',
         ]);
 
         DB::beginTransaction();
 
         try {
-            $restaurant = Restaurant::with('user')->findOrFail($restaurantId);
             $user = $restaurant->user;
 
-            if ($request->has('fullname') && $request->fullname) {
+            if ($request->filled('fullname')) {
                 $user->fullname = $request->fullname;
             }
-
-            if ($request->has('phone') && $request->phone) {
+            if ($request->filled('phone')) {
                 $user->phone = $request->phone;
             }
-
             $user->save();
 
             if ($request->has('description')) {
                 $restaurant->description = $request->description;
             }
 
-            if ($request->has('image')) {
-                $restaurant->image = $request->image;
+            if ($request->hasFile('image')) {
+                if ($restaurant->image) {
+                    Storage::disk('public')->delete($restaurant->image);
+                }
+
+                $path = $request->file('image')
+                    ->store('restaurants', 'public');
+
+                $restaurant->image = $path;
             }
 
             $restaurant->save();
 
-            if ($request->has('commission_type') && $request->has('commission_value')) {
+            if ($request->filled('commission_type') && $request->filled('commission_value')) {
                 RestaurantCommission::updateOrCreate(
                     ['restaurant_id' => $restaurant->id],
                     [
-                        'type' => $request->commission_type,
+                        'type'  => $request->commission_type,
                         'value' => $request->commission_value,
                     ]
                 );
             }
 
-            if ($request->has('city') && $request->city) {
+            if ($request->filled('city')) {
                 $area = Area::firstOrCreate(['city' => $request->city]);
 
-                DB::table('area_user')->where('user_id', $user->id)->delete();
+                DB::table('area_user')
+                    ->where('user_id', $user->id)
+                    ->delete();
 
-                DB::table('area_user')->insert([
-                    'user_id' => $user->id,
-                    'area_id' => $area->id,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                DB::table('area_user')
+                    ->insert([
+                        'user_id'    => $user->id,
+                        'area_id'    => $area->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
             }
 
             DB::commit();
 
             return response()->json([
-                'message' => '✅ تم تحديث بيانات المطعم بنجاح.',
+                'message'    => '✅ تم تحديث بيانات المطعم بنجاح.',
                 'restaurant' => $restaurant->fresh('user')
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
                 'message' => '❌ حدث خطأ أثناء تحديث بيانات المطعم.',
-                'error' => $e->getMessage()
+                'error'   => $e->getMessage()
             ], 500);
         }
     }
-
     public function getRestaurantOrdersByStatus(Request $request, $restaurantId)
     {
         $request->validate([
@@ -222,6 +231,11 @@ class AdminResturantController extends Controller
             'commission'
         ])->get();
 
+        $restaurants->transform(function ($restaurant) {
+            $restaurant->image = $restaurant->image ? asset('storage/' . $restaurant->image) : null;
+            return $restaurant;
+        });
+
         return response()->json([
             'status' => true,
             'message' => '📋 قائمة بجميع المطاعم',
@@ -231,7 +245,6 @@ class AdminResturantController extends Controller
 
     public function getRestaurantsByCity(Request $request, $city)
     {
-
         $restaurants = Restaurant::select('restaurants.*', 'users.fullname', 'users.phone', 'areas.city')
             ->join('users', 'restaurants.user_id', '=', 'users.id')
             ->join('area_user', 'users.id', '=', 'area_user.user_id')
@@ -239,12 +252,19 @@ class AdminResturantController extends Controller
             ->where('areas.city', $city)
             ->get();
 
+
+        $restaurants->transform(function ($restaurant) {
+            $restaurant->image = $restaurant->image ? asset('storage/' . $restaurant->image) : null;
+            return $restaurant;
+        });
+
         return response()->json([
             'status' => true,
             'message' => "📍 المطاعم الموجودة في مدينة {$request->city}",
             'data' => $restaurants,
         ]);
     }
+
 
     public function getRestaurantDetailsWithMeals($restaurantId)
     {

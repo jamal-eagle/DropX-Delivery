@@ -37,18 +37,21 @@ class AdvertisementController extends Controller
         ], 201);
     }
 
-
     public function get_all_ads()
     {
         $ads = Advertisement::select('id', 'title', 'description', 'image')->get();
-        return  response()->json([$ads], 200);
-    }
 
+        $ads->transform(function ($ad) {
+            $ad->image = $ad->image ? asset('storage/' . $ad->image) : null;
+            return $ad;
+        });
+
+        return response()->json($ads, 200);
+    }
 
     public function update_Ads(UpdateAdRequest $request, $id)
     {
         $ad = Advertisement::findOrFail($id);
-        //return response()->json($request);
         if ($request->has('title')) {
             $ad->title = $request->title;
         }

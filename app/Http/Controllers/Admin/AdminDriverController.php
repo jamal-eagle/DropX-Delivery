@@ -120,8 +120,6 @@ class AdminDriverController extends Controller
         return response()->json(['message' => 'تم تغيير كلمة المرور بنجاح'], 200);
     }
 
-
-
     public function indexDrivers()
     {
         $drivers = User::with('driver')

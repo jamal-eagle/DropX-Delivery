@@ -27,7 +27,7 @@ class GenerateDailyRestaurantReports implements ShouldQueue
 
     public function handle(): void
     {
-        $today = Carbon::yesterday()->toDateString(); // حساب تقارير يوم أمس
+        $today = Carbon::yesterday()->toDateString(); 
         $start = Carbon::yesterday()->startOfDay();
         $end = Carbon::yesterday()->endOfDay();
 
@@ -36,7 +36,7 @@ class GenerateDailyRestaurantReports implements ShouldQueue
         foreach ($restaurants as $restaurant) {
             $orders = Order::where('restaurant_id', $restaurant->id)
                 ->whereBetween('created_at', [$start, $end])
-                ->where('status', 'delivered') // تأكد أن status == delivered
+                ->where('status', 'delivered')
                 ->get();
 
             $totalOrders = $orders->count();
