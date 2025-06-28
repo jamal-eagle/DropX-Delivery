@@ -350,4 +350,72 @@ class DriverController extends Controller
 
         return response()->json(['message' => '✅ تم تحويل حالة الطلب إلى on_delivery.'], 200);
     }
+
+    public function myProfile()
+    {
+        $user   = auth()->user();
+        $driver = $user->driver;
+
+        if (!$driver) {
+            return response()->json(['message' => 'لا يوجد سجل سائق مرتبط بهذا المستخدم.'], 404);
+        }
+
+        $myTurn = $driver->areaTurns;
+
+        if (!$myTurn) {
+            return response()->json(['message' => 'السائق غير مُدرَج في جدول الدور.'], 404);
+        }
+
+        $activeTurns = DriverAreaTurn::where('area_id', $myTurn->area_id)
+            ->where('is_active', true)
+            ->orderBy('turn_order')
+            ->get();
+
+        $currentPointer = $activeTurns->firstWhere('is_next', true) ?? $activeTurns->first();
+
+        $aheadCount = 0;
+
+        foreach ($activeTurns as $turn) {
+
+            if ($turn->id === $myTurn->id) {
+                continue;
+            }
+
+            if ($currentPointer->turn_order <= $myTurn->turn_order) {
+                if (
+                    $turn->turn_order >= $currentPointer->turn_order &&
+                    $turn->turn_order <  $myTurn->turn_order
+                ) {
+                    $aheadCount++;
+                }
+            } else {
+                if (
+                    $turn->turn_order >= $currentPointer->turn_order ||
+                    $turn->turn_order <  $myTurn->turn_order
+                ) {
+                    $aheadCount++;
+                }
+            }
+        }
+
+        return response()->json([
+            'user'  => [
+                'id'       => $user->id,
+                'fullname' => $user->fullname,
+                'phone'    => $user->phone,
+            ],
+            'driver' => [
+                'id'            => $driver->id,
+                'vehicle_type'  => $driver->vehicle_type,
+                'vehicle_number' => $driver->vehicle_number,
+            ],
+            'turn'  => [
+                'area_id'     => $myTurn->area_id,
+                'turn_order'  => $myTurn->turn_order,
+                'is_active'   => (bool) $myTurn->is_active,
+                'is_next'     => (bool) $myTurn->is_next,
+                'drivers_ahead' => $aheadCount,
+            ],
+        ]);
+    }
 }

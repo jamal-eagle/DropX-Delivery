@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Order;
 use App\Models\Restaurant;
 use App\Models\RestaurantDailyReport;
 use App\Models\RestaurantMonthlyReport;
@@ -17,48 +18,46 @@ class GenerateMonthlyRestaurantReports implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct()
     {
         //
     }
 
-    /**
-     * Execute the job.
-     */
+
     public function handle(): void
     {
-       // نحسب عن الشهر الماضي
-        $monthStart = Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateString();
-        $monthEnd   = Carbon::now()->subMonthNoOverflow()->endOfMonth()->toDateString();
+        $monthStart = Carbon::now()->subMonthNoOverflow()->startOfMonth();
+        $monthEnd = Carbon::now()->subMonthNoOverflow()->endOfMonth();
+        $monthDate = Carbon::now()->subMonthNoOverflow()->startOfMonth();
 
-        // يتم تخزين الشهر على شكل تاريخ في أول يوم من الشهر
-        $monthDate = Carbon::parse($monthStart)->startOfMonth();
 
-        // جلب جميع المطاعم
         $restaurants = Restaurant::with('commission')->get();
 
         foreach ($restaurants as $restaurant) {
-            // جلب التقارير اليومية خلال الشهر
-            $dailyReports = RestaurantDailyReport::where('restaurant_id', $restaurant->id)
-                ->whereBetween('date', [$monthStart, $monthEnd])
+            $orders = Order::where('restaurant_id', $restaurant->id)
+                ->where('status', 'delivered')
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
                 ->get();
 
-            if ($dailyReports->isEmpty()) {
-                continue;
-            }
-
-            $totalOrders = $dailyReports->sum('total_orders');
-            $totalAmount = $dailyReports->sum('total_amount');
-            $systemEarnings = $dailyReports->sum('system_earnings');
-            $restaurantEarnings = $dailyReports->sum('restaurant_earnings');
+            $totalOrders = $orders->count();
+            $totalAmount = $orders->sum('total_price');
 
             $commissionType = $restaurant->commission->type ?? 'percentage';
             $commissionValue = $restaurant->commission->value ?? 0;
 
-            // تخزين التقرير الشهري
+            if ($commissionType === 'percentage') {
+                $systemEarnings = $totalAmount * ($commissionValue / 100);
+            } else {
+                $systemEarnings = $commissionValue * $totalOrders;
+            }
+
+            $restaurantEarnings = $totalAmount - $systemEarnings;
+
+            if ($totalOrders === 0) {
+                $systemEarnings = 0;
+                $restaurantEarnings = 0;
+            }
+
             RestaurantMonthlyReport::updateOrCreate(
                 [
                     'restaurant_id' => $restaurant->id,

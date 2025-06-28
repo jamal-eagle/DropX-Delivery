@@ -83,6 +83,8 @@ Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckD
     Route::put('updateAvailabilityTofalse', [DriverController::class, 'updateAvailabilityToFalse']);
     Route::put('updateAvailabilityTotrue', [DriverController::class, 'updateAvailabilityToTrue']);
     Route::put('scanOrderBarcodeByDriver/{order_id}', [DriverController::class, 'scanOrderByDriver']);
+    Route::get('myProfile', [DriverController::class, 'myProfile']);
+
 });
 
 Route::post('/adminlogin', [AuthAdminController::class, 'login']);

@@ -13,101 +13,120 @@ class SearchController extends Controller
 {
     public function getRestaurantsByCity($city)
     {
-        $areaIds = Area::where('city', $city)->pluck('id');
 
+        $areaIds = Area::where('city', $city)->pluck('id');
         if ($areaIds->isEmpty()) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'التطبيق لا يخدم هذه المدينة.',
             ], 404);
         }
 
-        $restaurants = User::whereHas('areas', function ($query) use ($city) {
-            $query->where('city', $city);
-        })
+        $restaurants = User::whereHas('areas', fn($q) => $q->where('areas.city', $city))
             ->whereHas('restaurant')
             ->with([
-                'restaurant.meals.images', // نحمل وجبات المطعم فقط
+                'restaurant.meals.images',
             ])
             ->get();
 
         if ($restaurants->isEmpty()) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'لا يوجد مطاعم في هذه المدينة.',
             ], 404);
         }
 
         $formattedRestaurants = $restaurants->map(function ($user) {
+
             $restaurant = $user->restaurant;
+            $imageUrl   = $restaurant->image ? asset('storage/' . $restaurant->image) : null;
 
-            // كل الوجبات التابعة لهذا المطعم
-            $allMeals = $restaurant->meals->map(function ($meal) {
-                return [
-                    'meal_id' => $meal->id,
-                    'meal_name' => $meal->name,
-                    'price' => $meal->original_price,
-                    'is_available' => $meal->is_available,
-                    'images' => $meal->images->map(fn($img) => asset('storage/' . $img->image)),
-                ];
-            });
+            $meals = $restaurant->meals;
 
-            // التصنيفات المرتبطة بهذا المطعم مع وجباتها التي تخص نفس المطعم
-            $categories = $restaurant->categories->map(function ($category) use ($restaurant) {
-                $meals = $category->meals()
-                    ->where('restaurant_id', $restaurant->id)
-                    ->with('images')
-                    ->get();
+            $categoryIds     = $meals->pluck('category_id')->unique();
+            $usedCategories  = \App\Models\Category::whereIn('id', $categoryIds)->get();
+
+            $categories = $usedCategories->map(function ($category) use ($meals) {
+
+                $mealsInCat = $meals->where('category_id', $category->id);
 
                 return [
                     'category_name' => $category->name,
-                    'meals' => $meals->map(function ($meal) {
+                    'meals' => $mealsInCat->map(function ($meal) {
                         return [
-                            'meal_id' => $meal->id,
-                            'meal_name' => $meal->name,
-                            'price' => $meal->original_price,
+                            'meal_id'      => $meal->id,
+                            'meal_name'    => $meal->name,
+                            'price'        => $meal->original_price,
                             'is_available' => $meal->is_available,
-                            'images' => $meal->images->map(fn($img) => asset('storage/' . $img->image)),
+                            'images'       => $meal->images
+                                ->map(fn($img) => asset('storage/' . $img->image)),
                         ];
-                    }),
+                    })->values(),
                 ];
             });
 
+            /* ── بناء الخرج بنفس البنية السابقة ──────────────────── */
             return [
-                'restaurant_From_User' => $restaurant->user,
-                'resturant_info' => $restaurant,
-                'all_meals' => $allMeals,
+                'restaurant_From_User' => [
+                    'id'            => $user->id,
+                    'fullname'      => $user->fullname,
+                    'phone'         => $user->phone,
+                    'location_text' => $user->location_text,
+                    'latitude'      => $user->latitude,
+                    'longitude'     => $user->longitude,
+                    'is_active'     => $user->is_active,
+                    'is_verified'   => $user->is_verified,
+                    'restaurant'    => [
+                        'id'                  => $restaurant->id,
+                        'user_id'             => $restaurant->user_id,
+                        'image'               => $imageUrl,
+                        'description'         => $restaurant->description,
+                        'working_hours_start' => $restaurant->working_hours_start,
+                        'working_hours_end'   => $restaurant->working_hours_end,
+                        'status'              => $restaurant->status,
+                        'created_at'          => $restaurant->created_at,
+                        'updated_at'          => $restaurant->updated_at,
+                        'meals'               => $meals->map(function ($meal) {
+                            return [
+                                'id'             => $meal->id,
+                                'category_id'    => $meal->category_id,
+                                'restaurant_id'  => $meal->restaurant_id,
+                                'name'           => $meal->name,
+                                'original_price' => $meal->original_price,
+                                'is_available'   => $meal->is_available,
+                                'created_at'     => $meal->created_at,
+                                'updated_at'     => $meal->updated_at,
+                                'images'         => $meal->images
+                                    ->map(fn($img) => asset('storage/' . $img->image)),
+                            ];
+                        }),
+                    ],
+                ],
                 'categories' => $categories,
             ];
         });
 
         return response()->json([
-            'status' => true,
-            'city' => $city,
+            'status'      => true,
+            'city'        => $city,
             'restaurants' => $formattedRestaurants,
         ], 200);
     }
 
+
     public function searchByNameResturant(Request $request, $city)
     {
-        $user = auth()->user();
-
         $areaIds = Area::where('city', $city)->pluck('id');
-
         if ($areaIds->isEmpty()) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'التطبيق لا يخدم هذه المدينة.',
             ], 404);
         }
 
-        $request->validate([
-            'name' => 'required|string',
-        ]);
+        $request->validate(['name' => 'required|string']);
 
-        $restaurantUsers = User::whereHas('areas', function ($query) use ($city) {
-                $query->where('areas.city', $city);
-            })
+        $restaurantUsers = User::whereHas('areas', fn($q) => $q->where('areas.city', $city))
             ->where('fullname', 'LIKE', '%' . $request->name . '%')
             ->whereHas('restaurant')
             ->with([
@@ -117,57 +136,88 @@ class SearchController extends Controller
 
         if ($restaurantUsers->isEmpty()) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'لا يوجد مطعم بهذا الاسم في المنطقة التي أنت فيها.',
             ], 404);
         }
 
         $formattedRestaurants = $restaurantUsers->map(function ($user) {
+
             $restaurant = $user->restaurant;
+            $meals      = $restaurant->meals;
+            $imageUrl   = $restaurant->image
+                ? asset('storage/' . $restaurant->image)
+                : null;
 
-            $allMeals = $restaurant->meals->map(function ($meal) {
-                return [
-                    'meal_id' => $meal->id,
-                    'meal_name' => $meal->name,
-                    'price' => $meal->original_price,
-                    'is_available' => $meal->is_available,
-                    'images' => $meal->images->map(fn($img) => asset('storage/' . $img->image)),
-                ];
-            });
+            $categoryIds = $meals->pluck('category_id')->unique();
+            $usedCategories = Category::whereIn('id', $categoryIds)->get();
 
-            $categories = $restaurant->categories->map(function ($category) use ($restaurant) {
-                $meals = $category->meals()
-                    ->where('restaurant_id', $restaurant->id)
-                    ->with('images')
-                    ->get();
+            $categories = $usedCategories->map(function ($category) use ($meals) {
+
+                $mealsInCat = $meals->where('category_id', $category->id);
 
                 return [
                     'category_name' => $category->name,
-                    'meals' => $meals->map(function ($meal) {
+                    'meals' => $mealsInCat->map(function ($meal) {
                         return [
-                            'meal_id' => $meal->id,
-                            'meal_name' => $meal->name,
-                            'price' => $meal->original_price,
+                            'meal_id'      => $meal->id,
+                            'meal_name'    => $meal->name,
+                            'price'        => $meal->original_price,
                             'is_available' => $meal->is_available,
-                            'images' => $meal->images->map(fn($img) => asset('storage/' . $img->image)),
+                            'images'       => $meal->images
+                                ->map(fn($img) => asset('storage/' . $img->image)),
                         ];
-                    }),
+                    })->values(),
                 ];
             });
 
             return [
-                'restaurant_From_User' => $user,
+                'restaurant_From_User' => [
+                    'id'           => $user->id,
+                    'fullname'     => $user->fullname,
+                    'phone'        => $user->phone,
+                    'location_text' => $user->location_text,
+                    'latitude'     => $user->latitude,
+                    'longitude'    => $user->longitude,
+                    'is_active'    => $user->is_active,
+                    'is_verified'  => $user->is_verified,
+                    'restaurant'   => [
+                        'id'                  => $restaurant->id,
+                        'user_id'             => $restaurant->user_id,
+                        'image'               => $imageUrl,                 // ← رابط كامل
+                        'description'         => $restaurant->description,
+                        'working_hours_start' => $restaurant->working_hours_start,
+                        'working_hours_end'   => $restaurant->working_hours_end,
+                        'status'              => $restaurant->status,
+                        'created_at'          => $restaurant->created_at,
+                        'updated_at'          => $restaurant->updated_at,
+                        'meals'               => $meals->map(function ($meal) {
+                            return [
+                                'id'             => $meal->id,
+                                'category_id'    => $meal->category_id,
+                                'restaurant_id'  => $meal->restaurant_id,
+                                'name'           => $meal->name,
+                                'original_price' => $meal->original_price,
+                                'is_available'   => $meal->is_available,
+                                'created_at'     => $meal->created_at,
+                                'updated_at'     => $meal->updated_at,
+                                'images'         => $meal->images
+                                    ->map(fn($img) => asset('storage/' . $img->image)),
+                            ];
+                        }),
+                        'categories'          => $restaurant->categories,  // تبقى كما كانت
+                    ],
+                ],
                 'categories' => $categories,
             ];
         });
 
         return response()->json([
-            'status' => true,
-            'city' => $city,
+            'status'      => true,
+            'city'        => $city,
             'restaurants' => $formattedRestaurants,
         ], 200);
     }
-
 
     public function searchMealByName(Request $request, $city)
     {
@@ -189,17 +239,17 @@ class SearchController extends Controller
         $restaurantUsers = User::whereHas('areas', function ($query) use ($areaIds) {
             $query->whereIn('areas.id', $areaIds);
         })
-        ->whereHas('restaurant.meals', function ($query) use ($mealName) {
-            $query->where('name', 'LIKE', '%' . $mealName . '%');
-        })
-        ->with([
-            'restaurant.meals' => function ($query) use ($mealName) {
-                $query->where('name', 'LIKE', '%' . $mealName . '%')
-                    ->with('images');
-            },
-            'restaurant',
-        ])
-        ->get();
+            ->whereHas('restaurant.meals', function ($query) use ($mealName) {
+                $query->where('name', 'LIKE', '%' . $mealName . '%');
+            })
+            ->with([
+                'restaurant.meals' => function ($query) use ($mealName) {
+                    $query->where('name', 'LIKE', '%' . $mealName . '%')
+                        ->with('images');
+                },
+                'restaurant',
+            ])
+            ->get();
 
         if ($restaurantUsers->isEmpty()) {
             return response()->json([
@@ -231,5 +281,4 @@ class SearchController extends Controller
             'restaurants' => $data,
         ], 200);
     }
-
 }
