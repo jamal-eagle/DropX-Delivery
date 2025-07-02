@@ -7,11 +7,13 @@ use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderRequest;
 use App\Models\Area;
 use App\Models\Meal;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PromoCode;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Services\FirebaseNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -317,6 +319,23 @@ class OrderController extends Controller
                     'meal_id' => $meal->id,
                     'quantity' => $item['quantity'],
                     'price' => $meal->original_price,
+                ]);
+            }
+            $restaurantOwner = $restaurantUser;
+            if ($restaurantOwner && $restaurantOwner->fcm_token) {
+
+                $title = 'طلب جديد في انتظارك';
+                $body  = "رقم الطلب #{$order->id} بقيمة " . number_format($order->total_price) . " ل.س";
+                $data  = ['type' => 'new_order', 'order_id' => $order->id];
+
+                app(FirebaseNotificationService::class)
+                    ->sendToToken($restaurantOwner->fcm_token, $title, $body, $data, $restaurantOwner->id);
+
+                Notification::create([
+                    'user_id' => $restaurantOwner->id,
+                    'title'   => $title,
+                    'body'    => $body,
+                    'data'    => $data,
                 ]);
             }
 
@@ -739,6 +758,25 @@ class OrderController extends Controller
         $order->update([
             'status' => 'delivered',
         ]);
+
+        $order->load('restaurant.user');
+        $restaurantOwner = $order->restaurant->user ?? null;
+
+        if ($restaurantOwner && $restaurantOwner->fcm_token) {
+            $title = 'تم تسليم الطلب';
+            $body  = "تم توصيل الطلب رقم #{$order->id} بنجاح إلى العميل.";
+            $data  = ['type' => 'order_delivered', 'order_id' => $order->id];
+
+            app(FirebaseNotificationService::class)
+                ->sendToToken($restaurantOwner->fcm_token, $title, $body, $data, $restaurantOwner->id);
+
+            Notification::create([
+                'user_id' => $restaurantOwner->id,
+                'title'   => $title,
+                'body'    => $body,
+                'data'    => $data,
+            ]);
+        }
 
         return response()->json(['message' => '✅ تم تأكيد تسليم الطلب.'], 200);
     }

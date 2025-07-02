@@ -36,4 +36,9 @@ return [
         'device_id' => env('HYPERSENDER_DEVICE_ID'),
     ],
 
+    'firebase' => [
+        'credentials' => base_path(env('FIREBASE_CREDENTIALS')),
+    ],
+
+
 ];

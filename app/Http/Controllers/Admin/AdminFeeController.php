@@ -53,7 +53,7 @@ class AdminFeeController extends Controller
 
     public function getAdminMonthlyEarningsFromRestaurants($year, $month)
     {
-        $monthDate = Carbon::createFromDate($year, $month, 1)->format('Y-m');
+        $monthDate = sprintf('%04d-%02d-01', $year, $month);
 
         $total = RestaurantMonthlyReport::where('month_date', $monthDate)->sum('system_earnings');
 

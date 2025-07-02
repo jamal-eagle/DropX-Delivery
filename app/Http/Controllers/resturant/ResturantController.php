@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\DriverAreaTurn;
 use App\Models\Meal;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Restaurant;
+use App\Services\FirebaseNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -87,8 +89,6 @@ class ResturantController extends Controller
 
         return true;
     }
-
-
 
     public function getPreparingOrders()
     {
@@ -229,6 +229,42 @@ class ResturantController extends Controller
 
                 $this->rotateDriverTurn($availableDriver);
 
+                $customer = $order->user;                     // صاحب الطلب
+                if ($customer && $customer->fcm_token) {
+                    $title = 'تم قبول طلبك';
+                    $body  = "المطعم {$restaurant->user->fullname} بدأ تجهيز طلبك رقم #{$order->id}.";
+                    $data  = ['type' => 'order_accepted', 'order_id' => $order->id];
+
+                    // إرسال FCM
+                    app(FirebaseNotificationService::class)
+                        ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
+
+                    // تخزين الإشعار في قاعدة البيانات
+                    Notification::create([
+                        'user_id' => $customer->id,
+                        'title'   => $title,
+                        'body'    => $body,
+                        'data'    => $data,
+                    ]);
+                }
+
+                $driverUser = $availableDriver->user;         // حساب السائق
+                if ($driverUser && $driverUser->fcm_token) {
+                    $title = 'طلب جديد بحاجة الى توصيل';
+                    $body  = "لديك طلب رقم #{$order->id} للتوصيل. اضغط لعرض التفاصيل.";
+                    $data  = ['type' => 'new_delivery', 'order_id' => $order->id];
+
+                    app(FirebaseNotificationService::class)
+                        ->sendToToken($driverUser->fcm_token, $title, $body, $data, $driverUser->id);
+
+                    Notification::create([
+                        'user_id' => $driverUser->id,
+                        'title'   => $title,
+                        'body'    => $body,
+                        'data'    => $data,
+                    ]);
+                }
+
                 Cache::forget("pending_orders_restaurant_{$restaurant->id}");
                 Cache::forget("preparing_orders_restaurant_{$restaurant->id}");
 
@@ -267,6 +303,25 @@ class ResturantController extends Controller
         $order->status = 'rejected';
         $order->is_accepted = false;
         $order->save();
+        $customer = $order->user;                          // صاحب الطلب
+
+        if ($customer && $customer->fcm_token) {
+            $title = 'عذرًا، تم رفض طلبك';
+            $body  = "المطعم {$restaurant->user->fullname} رفض طلبك   #.";
+            $data  = ['type' => 'order_rejected', 'order_id' => $order->id];
+
+            // 1) إرسال الإشعار عبر FCM
+            app(FirebaseNotificationService::class)
+                ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
+
+            // 2) تخزين الإشعار في جدول notifications
+            Notification::create([
+                'user_id' => $customer->id,
+                'title'   => $title,
+                'body'    => $body,
+                'data'    => $data,
+            ]);
+        }
 
         Cache::forget("pending_orders_restaurant_{$restaurant->id}");
 
@@ -275,7 +330,6 @@ class ResturantController extends Controller
             'message' => 'تم رفض الطلب بنجاح',
         ], 200);
     }
-
 
     public function getOrderDetails($orderId)
     {
@@ -510,5 +564,36 @@ class ResturantController extends Controller
             'user' => $user,
             'image' => $image,
         ], 200);
+    }
+
+
+    public function getRestaurantArchiveOrders()
+    {
+        $user = auth()->user();
+
+        if (!$user->restaurant) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'هذا المستخدم لا يملك مطعم.',
+            ], 403);
+        }
+
+        $restaurantId = $user->restaurant->id;
+        $statuses     = ['rejected', 'delivered', 'on_delivery'];
+
+        $orders = Order::with([
+            'user',
+            'driver.user',
+            'orderItems.meal.images',
+        ])
+            ->where('restaurant_id', $restaurantId)
+            ->whereIn('status', $statuses)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'orders' => $orders,
+        ]);
     }
 }

@@ -348,6 +348,26 @@ class DriverController extends Controller
             'status' => 'on_delivery',
         ]);
 
+        $customer = $order->user;
+
+        if ($customer && $customer->fcm_token) {
+            $title = 'طلبك في الطريق إليك';
+            $body  = "السائق الآن يحمل طلبك رقم #{$order->id} وسيصل قريبًا.";
+            $data  = ['type' => 'order_on_delivery', 'order_id' => $order->id];
+
+            // 1) إرسال إشعار FCM
+            app(\App\Services\FirebaseNotificationService::class)
+                ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
+
+            // 2) تخزين الإشعار في جدول notifications
+            \App\Models\Notification::create([
+                'user_id' => $customer->id,
+                'title'   => $title,
+                'body'    => $body,
+                'data'    => $data,
+            ]);
+        }
+
         return response()->json(['message' => '✅ تم تحويل حالة الطلب إلى on_delivery.'], 200);
     }
 

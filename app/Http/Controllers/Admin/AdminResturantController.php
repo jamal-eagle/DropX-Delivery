@@ -354,7 +354,7 @@ class AdminResturantController extends Controller
 
     public function getRestaurantMonthlyReport($restaurantId, $year, $month)
     {
-        $monthString = sprintf('%04d-%02d', $year, $month);
+        $monthString = sprintf('%04d-%02d-01', $year, $month);
 
         $report = RestaurantMonthlyReport::where('restaurant_id', $restaurantId)
             ->where('month_date', $monthString)
@@ -374,7 +374,7 @@ class AdminResturantController extends Controller
             'total_orders' => $report->total_orders,
             'total_amount' => $report->total_amount,
             'restaurant_earnings' => $report->restaurant_earnings,
-            'admin_earnings' => $report->admin_earnings,
+            'admin_earnings' => $report->system_earnings,
         ]);
     }
 }

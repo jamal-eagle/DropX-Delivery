@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\Area;
+use App\Models\Notification;
 use App\Models\User;
+use App\Services\FirebaseNotificationService;
 use App\Services\OTPSMSService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -87,8 +89,6 @@ class AuthController extends Controller
         });
     }
 
-
-
     public function verifyOTP(Request $request)
     {
         $request->validate([
@@ -115,7 +115,7 @@ class AuthController extends Controller
 
             $user->update(['is_verified' => true]);
             Cache::forget("otp_{$phone}");
-            Cache::forget($attemptKey); // تصفير المحاولات بعد نجاح التحقق
+            Cache::forget($attemptKey);
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -131,8 +131,6 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'رمز غير صحيح. تبقّى ' . (2 - $attempts) . ' محاولات.'], 401);
     }
-
-
 
     public function login(LoginRequest $request)
     {
@@ -233,6 +231,23 @@ class AuthController extends Controller
                 $user->areas()->attach($area->id);
             }
         }
+        $title = 'تم تحديث بياناتك';
+        $body  = '✅ تم تعديل معلومات حسابك بنجاح.';
+        $data  = ['type' => 'profile_update'];
+
+        if ($user->fcm_token) {
+            app(FirebaseNotificationService::class)
+                ->sendToToken($user->fcm_token, $title, $body, $data, $user->id);
+        }
+
+        Notification::create([
+            'user_id' => $user->id,
+            'title'   => $title,
+            'body'    => $body,
+            'data'    => $data,
+        ]);
+
+
 
         return response()->json([
             'message' => 'تم تحديث بيانات المستخدم بنجاح.',
