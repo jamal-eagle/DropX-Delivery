@@ -30,7 +30,5 @@ class UpdateRestaurantStatusJob implements ShouldQueue
         $closed = Restaurant::where('working_hours_end', '<=', $now)
             ->where('status', '!=', 'closed')
             ->update(['status' => 'closed']);
-
-
     }
 }

@@ -56,6 +56,7 @@ Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCus
     Route::get('/getMealsByCity/{city}', [OrderController::class, 'getMealsByCity']);
     Route::get('/getAllMealsOnMyAppletion', [OrderController::class, 'getAllMeals']);
     Route::put('scanOrderBarcodeByUser/{order_id}', [OrderController::class, 'scanOrderBarcodeByUser']);
+    Route::post('auth/resend-otp', [AuthController::class, 'resendOtp']);
 });
 
 Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])->group(function () {

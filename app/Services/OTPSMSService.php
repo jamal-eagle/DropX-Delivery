@@ -13,15 +13,14 @@ class OTPSMSService
         $url = "https://app.hypersender.com/api/sms/v1/{$instanceId}/send-message";
 
         $response = Http::withOptions([
-            'verify' => false, // مؤقتًا لتجاوز مشكلة SSL على ويندوز
+            'verify' => false,
         ])
             ->withToken(config('services.hypersender_sms.token'))
             ->post($url, [
-                'to' => $phoneNumber, // ✅ اسم الحقل الصحيح
-                'content' => "رمز التحقق الخاص بهذا الرقم هو: $otp", // ✅ اسم الحقل الصحيح
+                'to' => $phoneNumber,
+                'content' => "رمز التحقق الخاص بهذا الرقم هو: $otp",
             ]);
 
-        // تسجيل الرد الكامل للمراجعة
         Log::info('Hypersender Final Response', [
             'status' => $response->status(),
             'body' => $response->body(),

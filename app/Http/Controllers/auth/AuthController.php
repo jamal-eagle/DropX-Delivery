@@ -62,7 +62,7 @@ class AuthController extends Controller
                 'phone'       => $normalizedPhone,
                 'password'    => Hash::make($request->password),
                 'is_verified' => false,
-                // 'fcm_token' => $request->fcm_token,
+                'fcm_token' => $request->fcm_token,
             ]);
 
             $area = Area::firstOrCreate(
@@ -132,6 +132,51 @@ class AuthController extends Controller
         return response()->json(['message' => 'رمز غير صحيح. تبقّى ' . (2 - $attempts) . ' محاولات.'], 401);
     }
 
+    public function resendOtp(Request $request)
+    {
+        $request->validate([
+            'phone' => 'required|string|exists:users,phone',
+        ]);
+
+        $phone = $this->normalizePhoneForStorage($request->phone);
+
+        $user = User::where('phone', $phone)->first();
+
+        if ($user->is_verified) {
+            return response()->json([
+                'status' => false,
+                'message' => 'تم التحقق من الحساب مسبقاً.',
+            ], 400);
+        }
+
+        if (Cache::has("otp_{$user->phone}")) {
+            return response()->json([
+                'status' => true,
+                'message' => 'تم إرسال كود تحقق مسبقًا، الرجاء التحقق من رسائلك.',
+            ]);
+        }
+
+        $otp = rand(100000, 999999);
+        Cache::put("otp_{$user->phone}", $otp, now()->addMinutes(5));
+
+        $formattedPhone = $this->formatPhoneNumberToE164($user->phone);
+
+        $sent = (new OTPSMSService())->send($formattedPhone, $otp);
+
+        if (! $sent) {
+            return response()->json([
+                'status' => false,
+                'message' => 'فشل في إرسال كود التحقق.',
+            ], 500);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'تم إرسال كود التحقق بنجاح.',
+        ]);
+    }
+
+
     public function login(LoginRequest $request)
     {
         $user = User::where('phone', $request->phone)->first();
@@ -156,6 +201,10 @@ class AuthController extends Controller
         }
 
         $user = User::where('phone', $request->phone)->FirstOrFail();
+
+        if ($request->filled('fcm_token') && $request->fcm_token !== $user->fcm_token) {
+            $user->update(['fcm_token' => $request->fcm_token]);
+        }
         $token = $user->createToken('auth_token')->plainTextToken;
         return response()->json([
             'user' => $user,

@@ -21,7 +21,7 @@ class Kernel extends ConsoleKernel
         $schedule->job(new GenerateDailyRestaurantReports)->dailyAt('00:05');
         $schedule->job(new GenerateMonthlyRestaurantReports)->monthlyOn(1, '00:30');
         $schedule->command('drivers:generate-daily-reports')->dailyAt('00:01');
-        $schedule->command('drivers:generate-monthly-report')->monthlyOn(1, '00:07');
+        $schedule->command('drivers:generate-monthly-report')->monthlyOn(1, '00:15');
 
 
         $schedule->job(new UpdateRestaurantStatusJob)
