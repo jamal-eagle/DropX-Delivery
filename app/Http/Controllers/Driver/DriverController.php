@@ -96,12 +96,9 @@ class DriverController extends Controller
         if ($user->user_type !== 'driver') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
+
         $driver = $user->driver;
         $driverId = $user->driver->id;
-
-        // if (!$driver->is_active) {
-        //     return response()->json(['message' => ' حالة السائق غير متاح حالياً يرجى تعديل الحالة لرؤية الطلبات المتاحة.'], 403);
-        // }
 
         $driverCities = $user->areas()->pluck('city')->unique()->values()->toArray();
 
@@ -112,12 +109,19 @@ class DriverController extends Controller
                 $query->whereIn('city', $driverCities);
             })
             ->with(['user', 'restaurant.user', 'orderItems.meal'])
-            ->get();
+            ->get()
+            ->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+                return $order;
+            });
 
         return response()->json([
             'orders' => $orders,
         ], 200);
     }
+
 
     public function availableOrdersOnDelivery()
     {
@@ -142,7 +146,12 @@ class DriverController extends Controller
                 $query->whereIn('city', $driverCities);
             })
             ->with(['user', 'restaurant.user', 'orderItems.meal'])
-            ->get();
+            ->get()->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+                return $order;
+            });
 
         return response()->json([
             'orders' => $orders,
@@ -167,7 +176,12 @@ class DriverController extends Controller
                 'orderItems.meal'
             ])
             ->orderByDesc('updated_at')
-            ->get();
+            ->get()->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+                return $order;
+            });
 
         return response()->json([
             'orders' => $orders
@@ -185,14 +199,19 @@ class DriverController extends Controller
         $driverId = $user->driver->id;
 
         $orders = Order::where('driver_id', $driverId)
-            ->whereIn('status', ['preparing', 'on_delivery'])
+            ->whereIn('status', ['preparing', 'on_delivery', 'pending'])
             ->with([
                 'user',
                 'restaurant',
                 'orderItems.meal'
             ])
             ->orderByDesc('updated_at')
-            ->get();
+            ->get()->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+                return $order;
+            });
 
         return response()->json([
             'orders' => $orders
@@ -204,23 +223,25 @@ class DriverController extends Controller
         $user = Auth::user();
 
         $order = Order::where('id', $order_id)
-            ->with([
-                'user',
-                'restaurant.user',
-                'orderItems.meal'
-            ])
+            ->with(['user', 'restaurant.user', 'orderItems.meal'])
             ->first();
 
-        if (! $order) {
+        if (!$order) {
             return response()->json(['message' => 'الطلب غير موجود'], 404);
         }
+
+        if ($order->barcode) {
+            $order->barcode = asset('storage/' . $order->barcode);
+        }
+
         $mealsCount = $order->orderItems->sum('quantity');
 
         return response()->json([
             'mealcount' => $mealsCount,
-            'order' => $order,
+            'order'     => $order,
         ], 200);
     }
+
 
     public function updateAvailabilityToFalse()
     {

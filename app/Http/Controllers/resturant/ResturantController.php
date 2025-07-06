@@ -99,7 +99,11 @@ class ResturantController extends Controller
                 ->where('restaurant_id', $restaurantId)
                 ->where('status', 'preparing')
                 ->latest()
-                ->get();
+                ->get()
+                ->map(function ($order) {
+                    $order->barcode = $order->barcode ? asset('storage/' . $order->barcode) : null;
+                    return $order;
+                });
         });
 
         return response()->json([
@@ -107,6 +111,8 @@ class ResturantController extends Controller
             'orders' => $orders
         ], 200);
     }
+
+
     public function getPendingOrders()
     {
         $restaurantId = auth()->user()->restaurant->id;
@@ -116,7 +122,10 @@ class ResturantController extends Controller
                 ->where('restaurant_id', $restaurantId)
                 ->where('status', 'pending')
                 ->latest()
-                ->get();
+                ->get()->map(function ($order) {
+                    $order->barcode = $order->barcode ? asset('storage/' . $order->barcode) : null;
+                    return $order;
+                });
         });
 
         return response()->json([
@@ -235,7 +244,6 @@ class ResturantController extends Controller
                     $body  = "المطعم {$restaurant->user->fullname} بدأ تجهيز طلبك رقم #{$order->id}.";
                     $data  = ['type' => 'order_accepted', 'order_id' => $order->id];
 
-                    // إرسال FCM
                     app(FirebaseNotificationService::class)
                         ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
 
@@ -248,7 +256,7 @@ class ResturantController extends Controller
                     ]);
                 }
 
-                $driverUser = $availableDriver->user;         // حساب السائق
+                $driverUser = $availableDriver->user;
                 if ($driverUser && $driverUser->fcm_token) {
                     $title = 'طلب جديد بحاجة الى توصيل';
                     $body  = "لديك طلب رقم #{$order->id} للتوصيل. اضغط لعرض التفاصيل.";
@@ -303,18 +311,16 @@ class ResturantController extends Controller
         $order->status = 'rejected';
         $order->is_accepted = false;
         $order->save();
-        $customer = $order->user;                          // صاحب الطلب
+        $customer = $order->user;
 
         if ($customer && $customer->fcm_token) {
             $title = 'عذرًا، تم رفض طلبك';
             $body  = "المطعم {$restaurant->user->fullname} رفض طلبك   #.";
             $data  = ['type' => 'order_rejected', 'order_id' => $order->id];
 
-            // 1) إرسال الإشعار عبر FCM
             app(FirebaseNotificationService::class)
                 ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
 
-            // 2) تخزين الإشعار في جدول notifications
             Notification::create([
                 'user_id' => $customer->id,
                 'title'   => $title,
@@ -346,26 +352,37 @@ class ResturantController extends Controller
         if (!$order) {
             return response()->json(['message' => 'الطلب غير موجود.'], 404);
         }
-        $order1 = Order::where('id', $orderId)
-            ->first();
+
+        $order1 = Order::where('id', $orderId)->first();
         if (!$order1) {
             return response()->json(['message' => 'الطلب غير موجود.'], 404);
         }
 
+        // ✅ تعديل الصور داخل كل وجبة إلى روابط asset
+        foreach ($order->orderItems as $orderItem) {
+            foreach ($orderItem->meal->images as $image) {
+                $image->image = asset('storage/' . $image->image);
+            }
+        }
+
+        // ✅ تعديل الباركود إلى رابط asset
+        if ($order1->barcode) {
+            $order1->barcode = asset('storage/' . $order1->barcode);
+        }
+
         $items = $order->orderItems->map(function ($item) {
             return [
-
                 'meal_name' => $item->meal->name,
                 'quantity' => $item->quantity,
                 'price' => $item->price,
                 'total' => $item->price * $item->quantity,
                 'images' => $item->meal->images->pluck('image'),
-
             ];
         });
 
         $totalQuantity = $order->orderItems->sum('quantity');
         $distinctTypes = $order->orderItems->count();
+
         return response()->json([
             'order' => $order1,
             'customer' => [
@@ -383,6 +400,7 @@ class ResturantController extends Controller
             'created_at' => $order->created_at->format('Y-m-d H:i'),
         ], 200);
     }
+
 
     public function updateWorkingHours(Request $request)
     {
@@ -589,7 +607,22 @@ class ResturantController extends Controller
             ->where('restaurant_id', $restaurantId)
             ->whereIn('status', $statuses)
             ->latest()
-            ->get();
+            ->get()
+            ->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+
+                foreach ($order->orderItems as $orderItem) {
+                    if ($orderItem->meal && $orderItem->meal->images) {
+                        foreach ($orderItem->meal->images as $image) {
+                            $image->image = asset('storage/' . $image->image);
+                        }
+                    }
+                }
+
+                return $order;
+            });
 
         return response()->json([
             'status' => true,
