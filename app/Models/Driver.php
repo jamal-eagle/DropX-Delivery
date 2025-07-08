@@ -39,4 +39,14 @@ class Driver extends Model
     {
         return $this->hasMany(DriverWorkingHour::class);
     }
+
+    public function dailyReports()
+    {
+        return $this->hasMany(DriverDailyReport::class);
+    }
+
+    public function monthlyReports()
+    {
+        return $this->hasMany(DriverMonthlyReport::class);
+    }
 }

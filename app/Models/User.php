@@ -31,7 +31,6 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'is_active',
         'user_type',
         'fcm_token',
         'deleted_at',
@@ -50,6 +49,11 @@ class User extends Authenticatable
 
 
 
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
 
 
     public function restaurant()

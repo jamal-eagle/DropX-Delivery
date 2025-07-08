@@ -16,31 +16,28 @@ class RotateDailyDriverTurns extends Command
 
     protected $description = 'تدوير الدور بين السائقين كل يوم الساعة 6 صباحًا فقط لمن لديهم دوام اليوم';
 
-
     public function handle()
     {
-        $today = now()->format('l'); // Sunday, Monday...
+        $today = now()->format('l');
 
-        // جلب جميع الأدوار النشطة المرتبطة بسائقين لديهم دوام اليوم
         $eligibleTurns = DriverAreaTurn::where('is_active', true)
             ->whereHas('driver.workingHours', function ($q) use ($today) {
                 $q->where('day_of_week', $today);
             })
-            ->with(['driver.workingHours', 'driver.user.areas'])
+            ->with(['driver.workingHours', 'area'])
             ->get();
 
-        // تجميع الأدوار بحسب المدينة
-        $groupedByCity = $eligibleTurns->groupBy(function ($turn) {
-            return strtolower(trim(optional($turn->driver->user->areas->first())->city));
-        });
+        $groupedByArea = $eligibleTurns->groupBy('area_id');
 
-        foreach ($groupedByCity as $city => $turns) {
-            if ($city === '' || $turns->isEmpty()) {
-                Log::warning("❌ لم يتم تحديد المدينة بشكل صحيح لبعض السائقين");
+        foreach ($groupedByArea as $areaId => $turns) {
+            $areaName = optional($turns->first()->area)->city ?? "غير معروفة";
+
+            if ($turns->isEmpty()) {
+                Log::warning("❌ لا يوجد سائقين لمنطقة ID: {$areaId}");
                 continue;
             }
 
-            // ترتيب حسب turn_order
+            // ترتيب حسب الدور
             $sortedTurns = $turns->sortBy('turn_order')->values();
 
             if ($sortedTurns->count() === 1) {
@@ -49,11 +46,10 @@ class RotateDailyDriverTurns extends Command
                     'is_next' => true,
                     'turn_assigned_at' => now(),
                 ]);
-                Log::info("🚨 السائق الوحيد في مدينة {$city} تم إبقاء الدور لديه ID {$turn->driver_id}");
+                Log::info("🚨 السائق الوحيد في منطقة {$areaName} (ID: {$areaId}) تم إبقاء الدور لديه");
                 continue;
             }
 
-            // تدوير الدور: أول واحد يصبح هو صاحب الدور
             foreach ($sortedTurns as $i => $turn) {
                 $turn->update([
                     'is_next' => $i === 0,
@@ -61,11 +57,12 @@ class RotateDailyDriverTurns extends Command
                 ]);
             }
 
-            Log::info("✅ تم تدوير الدور في مدينة {$city} بين " . $sortedTurns->count() . " سائقين.");
+            Log::info("✅ تم تدوير الدور في منطقة {$areaName} (ID: {$areaId}) بين " . $sortedTurns->count() . " سائقين.");
         }
 
-        $this->info("تم تدوير الأدوار بنجاح");
+        $this->info("تم تدوير الأدوار بنجاح حسب المناطق.");
         return 0;
     }
+
 }
 

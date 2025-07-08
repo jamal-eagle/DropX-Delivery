@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\DriverAreaTurn;
 use App\Models\Meal;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Restaurant;
+use App\Services\FirebaseNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -35,31 +37,23 @@ class ResturantController extends Controller
 
     private function rotateDriverTurn($currentDriver): bool
     {
-        $userAreas = $currentDriver->user->areas;
+        $currentTurn = DriverAreaTurn::where('driver_id', $currentDriver->id)
+            ->where('is_active', true)
+            ->first();
 
-        if ($userAreas->isEmpty()) {
-            Log::warning("السائق ID {$currentDriver->id} غير مرتبط بأي منطقة.");
+        if (!$currentTurn) {
+            Log::error("❌ لم يتم العثور على دور للسائق ID {$currentDriver->id}.");
             return false;
         }
 
-        $driverCities = $userAreas->pluck('city')->map(fn($city) => strtolower(trim($city)))->unique()->toArray();
+        $areaId = $currentTurn->area_id;
 
         $allTurns = DriverAreaTurn::where('is_active', true)
-            ->whereHas('driver.user.areas', function ($query) use ($driverCities) {
-                $query->whereIn(DB::raw('LOWER(TRIM(city))'), $driverCities);
-            })
-            ->with(['driver.user.areas', 'driver.workingHours'])
+            ->where('area_id', $areaId)
+            ->with(['driver.user', 'driver.workingHours'])
             ->orderBy('turn_order')
             ->get();
 
-        $currentTurn = $allTurns->firstWhere('driver_id', $currentDriver->id);
-
-        if (!$currentTurn) {
-            Log::error("❌ لم يتم العثور على دور للسائق ID {$currentDriver->id} ضمن السائقين في المدن: " . implode(', ', $driverCities));
-            return false;
-        }
-
-        // فلترة السائقين المؤهلين (غيره)
         $eligibleTurns = $allTurns->filter(function ($turn) use ($currentDriver) {
             $driver = $turn->driver;
 
@@ -69,18 +63,16 @@ class ResturantController extends Controller
                 && $this->isDriverInWorkingHours($driver);
         });
 
-        // لا يوجد بديل مؤهل → لا تغيير
         if ($eligibleTurns->isEmpty()) {
             $currentTurn->update([
                 'is_next' => true,
                 'turn_assigned_at' => now(),
             ]);
 
-            Log::info("🚫 لا يمكن تدوير الدور: لا يوجد سائق آخر متاح.");
+            Log::info("🚫 لا يوجد سائق متاح في المنطقة ID {$areaId} لتدوير الدور.");
             return false;
         }
 
-        // تدوير الدور فعليًا
         $nextTurn = $eligibleTurns->first();
 
         $currentTurn->update([
@@ -93,12 +85,10 @@ class ResturantController extends Controller
             'turn_assigned_at' => now(),
         ]);
 
-        Log::info("✅ تم تدوير الدور من السائق ID {$currentDriver->id} إلى السائق ID {$nextTurn->driver_id}");
+        Log::info("✅ تم تدوير الدور من السائق ID {$currentDriver->id} إلى السائق ID {$nextTurn->driver_id} في المنطقة ID {$areaId}");
 
         return true;
     }
-
-
 
     public function getPreparingOrders()
     {
@@ -109,7 +99,11 @@ class ResturantController extends Controller
                 ->where('restaurant_id', $restaurantId)
                 ->where('status', 'preparing')
                 ->latest()
-                ->get();
+                ->get()
+                ->map(function ($order) {
+                    $order->barcode = $order->barcode ? asset('storage/' . $order->barcode) : null;
+                    return $order;
+                });
         });
 
         return response()->json([
@@ -117,6 +111,8 @@ class ResturantController extends Controller
             'orders' => $orders
         ], 200);
     }
+
+
     public function getPendingOrders()
     {
         $restaurantId = auth()->user()->restaurant->id;
@@ -126,7 +122,10 @@ class ResturantController extends Controller
                 ->where('restaurant_id', $restaurantId)
                 ->where('status', 'pending')
                 ->latest()
-                ->get();
+                ->get()->map(function ($order) {
+                    $order->barcode = $order->barcode ? asset('storage/' . $order->barcode) : null;
+                    return $order;
+                });
         });
 
         return response()->json([
@@ -239,6 +238,41 @@ class ResturantController extends Controller
 
                 $this->rotateDriverTurn($availableDriver);
 
+                $customer = $order->user;                     // صاحب الطلب
+                if ($customer && $customer->fcm_token) {
+                    $title = 'تم قبول طلبك';
+                    $body  = "المطعم {$restaurant->user->fullname} بدأ تجهيز طلبك رقم #{$order->id}.";
+                    $data  = ['type' => 'order_accepted', 'order_id' => $order->id];
+
+                    app(FirebaseNotificationService::class)
+                        ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
+
+                    // تخزين الإشعار في قاعدة البيانات
+                    Notification::create([
+                        'user_id' => $customer->id,
+                        'title'   => $title,
+                        'body'    => $body,
+                        'data'    => $data,
+                    ]);
+                }
+
+                $driverUser = $availableDriver->user;
+                if ($driverUser && $driverUser->fcm_token) {
+                    $title = 'طلب جديد بحاجة الى توصيل';
+                    $body  = "لديك طلب رقم #{$order->id} للتوصيل. اضغط لعرض التفاصيل.";
+                    $data  = ['type' => 'new_delivery', 'order_id' => $order->id];
+
+                    app(FirebaseNotificationService::class)
+                        ->sendToToken($driverUser->fcm_token, $title, $body, $data, $driverUser->id);
+
+                    Notification::create([
+                        'user_id' => $driverUser->id,
+                        'title'   => $title,
+                        'body'    => $body,
+                        'data'    => $data,
+                    ]);
+                }
+
                 Cache::forget("pending_orders_restaurant_{$restaurant->id}");
                 Cache::forget("preparing_orders_restaurant_{$restaurant->id}");
 
@@ -277,6 +311,23 @@ class ResturantController extends Controller
         $order->status = 'rejected';
         $order->is_accepted = false;
         $order->save();
+        $customer = $order->user;
+
+        if ($customer && $customer->fcm_token) {
+            $title = 'عذرًا، تم رفض طلبك';
+            $body  = "المطعم {$restaurant->user->fullname} رفض طلبك   #.";
+            $data  = ['type' => 'order_rejected', 'order_id' => $order->id];
+
+            app(FirebaseNotificationService::class)
+                ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
+
+            Notification::create([
+                'user_id' => $customer->id,
+                'title'   => $title,
+                'body'    => $body,
+                'data'    => $data,
+            ]);
+        }
 
         Cache::forget("pending_orders_restaurant_{$restaurant->id}");
 
@@ -285,7 +336,6 @@ class ResturantController extends Controller
             'message' => 'تم رفض الطلب بنجاح',
         ], 200);
     }
-
 
     public function getOrderDetails($orderId)
     {
@@ -302,26 +352,37 @@ class ResturantController extends Controller
         if (!$order) {
             return response()->json(['message' => 'الطلب غير موجود.'], 404);
         }
-        $order1 = Order::where('id', $orderId)
-            ->first();
+
+        $order1 = Order::where('id', $orderId)->first();
         if (!$order1) {
             return response()->json(['message' => 'الطلب غير موجود.'], 404);
         }
 
+        // ✅ تعديل الصور داخل كل وجبة إلى روابط asset
+        foreach ($order->orderItems as $orderItem) {
+            foreach ($orderItem->meal->images as $image) {
+                $image->image = asset('storage/' . $image->image);
+            }
+        }
+
+        // ✅ تعديل الباركود إلى رابط asset
+        if ($order1->barcode) {
+            $order1->barcode = asset('storage/' . $order1->barcode);
+        }
+
         $items = $order->orderItems->map(function ($item) {
             return [
-
                 'meal_name' => $item->meal->name,
                 'quantity' => $item->quantity,
                 'price' => $item->price,
                 'total' => $item->price * $item->quantity,
                 'images' => $item->meal->images->pluck('image'),
-
             ];
         });
 
         $totalQuantity = $order->orderItems->sum('quantity');
         $distinctTypes = $order->orderItems->count();
+
         return response()->json([
             'order' => $order1,
             'customer' => [
@@ -339,6 +400,7 @@ class ResturantController extends Controller
             'created_at' => $order->created_at->format('Y-m-d H:i'),
         ], 200);
     }
+
 
     public function updateWorkingHours(Request $request)
     {
@@ -520,5 +582,51 @@ class ResturantController extends Controller
             'user' => $user,
             'image' => $image,
         ], 200);
+    }
+
+
+    public function getRestaurantArchiveOrders()
+    {
+        $user = auth()->user();
+
+        if (!$user->restaurant) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'هذا المستخدم لا يملك مطعم.',
+            ], 403);
+        }
+
+        $restaurantId = $user->restaurant->id;
+        $statuses     = ['rejected', 'delivered', 'on_delivery'];
+
+        $orders = Order::with([
+            'user',
+            'driver.user',
+            'orderItems.meal.images',
+        ])
+            ->where('restaurant_id', $restaurantId)
+            ->whereIn('status', $statuses)
+            ->latest()
+            ->get()
+            ->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+
+                foreach ($order->orderItems as $orderItem) {
+                    if ($orderItem->meal && $orderItem->meal->images) {
+                        foreach ($orderItem->meal->images as $image) {
+                            $image->image = asset('storage/' . $image->image);
+                        }
+                    }
+                }
+
+                return $order;
+            });
+
+        return response()->json([
+            'status' => true,
+            'orders' => $orders,
+        ]);
     }
 }

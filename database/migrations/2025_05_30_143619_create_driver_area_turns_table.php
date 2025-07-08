@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('driver_area_turns', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('driver_id');
+            $table->unsignedBigInteger('area_id');
             $table->integer('turn_order');
             $table->boolean('is_next')->default(false);
             $table->boolean('is_active')->default(true);
@@ -21,6 +22,7 @@ return new class extends Migration
             $table->timestamp('last_assigned_at')->nullable();
             $table->timestamps();
             $table->foreign('driver_id')->references('id')->on('drivers')->onDelete('cascade');
+            $table->foreign('area_id')->references('id')->on('areas')->onDelete('cascade');
         });
     }
 

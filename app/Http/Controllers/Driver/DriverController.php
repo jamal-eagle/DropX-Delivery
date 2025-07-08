@@ -18,31 +18,23 @@ class DriverController extends Controller
 
     private function rotateDriverTurn($currentDriver): bool
     {
-        $userAreas = $currentDriver->user->areas;
+        $currentTurn = DriverAreaTurn::where('driver_id', $currentDriver->id)
+            ->where('is_active', true)
+            ->first();
 
-        if ($userAreas->isEmpty()) {
-            Log::warning("السائق ID {$currentDriver->id} غير مرتبط بأي منطقة.");
+        if (!$currentTurn) {
+            Log::error("❌ لم يتم العثور على دور للسائق ID {$currentDriver->id}.");
             return false;
         }
 
-        $driverCities = $userAreas->pluck('city')->map(fn($city) => strtolower(trim($city)))->unique()->toArray();
+        $areaId = $currentTurn->area_id;
 
         $allTurns = DriverAreaTurn::where('is_active', true)
-            ->whereHas('driver.user.areas', function ($query) use ($driverCities) {
-                $query->whereIn(DB::raw('LOWER(TRIM(city))'), $driverCities);
-            })
-            ->with(['driver.user.areas', 'driver.workingHours'])
+            ->where('area_id', $areaId)
+            ->with(['driver.user', 'driver.workingHours'])
             ->orderBy('turn_order')
             ->get();
 
-        $currentTurn = $allTurns->firstWhere('driver_id', $currentDriver->id);
-
-        if (!$currentTurn) {
-            Log::error("❌ لم يتم العثور على دور للسائق ID {$currentDriver->id} ضمن السائقين في المدن: " . implode(', ', $driverCities));
-            return false;
-        }
-
-        // فلترة السائقين المؤهلين (غيره)
         $eligibleTurns = $allTurns->filter(function ($turn) use ($currentDriver) {
             $driver = $turn->driver;
 
@@ -52,18 +44,16 @@ class DriverController extends Controller
                 && $this->isDriverInWorkingHours($driver);
         });
 
-        // لا يوجد بديل مؤهل → لا تغيير
         if ($eligibleTurns->isEmpty()) {
             $currentTurn->update([
                 'is_next' => true,
                 'turn_assigned_at' => now(),
             ]);
 
-            Log::info("🚫 لا يمكن تدوير الدور: لا يوجد سائق آخر متاح.");
+            Log::info("🚫 لا يوجد سائق متاح في المنطقة ID {$areaId} لتدوير الدور.");
             return false;
         }
 
-        // تدوير الدور فعليًا
         $nextTurn = $eligibleTurns->first();
 
         $currentTurn->update([
@@ -76,10 +66,11 @@ class DriverController extends Controller
             'turn_assigned_at' => now(),
         ]);
 
-        Log::info("✅ تم تدوير الدور من السائق ID {$currentDriver->id} إلى السائق ID {$nextTurn->driver_id}");
+        Log::info("✅ تم تدوير الدور من السائق ID {$currentDriver->id} إلى السائق ID {$nextTurn->driver_id} في المنطقة ID {$areaId}");
 
         return true;
     }
+
 
     protected function isDriverInWorkingHours($driver)
     {
@@ -105,12 +96,9 @@ class DriverController extends Controller
         if ($user->user_type !== 'driver') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
+
         $driver = $user->driver;
         $driverId = $user->driver->id;
-
-        // if (!$driver->is_active) {
-        //     return response()->json(['message' => ' حالة السائق غير متاح حالياً يرجى تعديل الحالة لرؤية الطلبات المتاحة.'], 403);
-        // }
 
         $driverCities = $user->areas()->pluck('city')->unique()->values()->toArray();
 
@@ -121,12 +109,19 @@ class DriverController extends Controller
                 $query->whereIn('city', $driverCities);
             })
             ->with(['user', 'restaurant.user', 'orderItems.meal'])
-            ->get();
+            ->get()
+            ->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+                return $order;
+            });
 
         return response()->json([
             'orders' => $orders,
         ], 200);
     }
+
 
     public function availableOrdersOnDelivery()
     {
@@ -151,7 +146,12 @@ class DriverController extends Controller
                 $query->whereIn('city', $driverCities);
             })
             ->with(['user', 'restaurant.user', 'orderItems.meal'])
-            ->get();
+            ->get()->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+                return $order;
+            });
 
         return response()->json([
             'orders' => $orders,
@@ -176,7 +176,12 @@ class DriverController extends Controller
                 'orderItems.meal'
             ])
             ->orderByDesc('updated_at')
-            ->get();
+            ->get()->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+                return $order;
+            });
 
         return response()->json([
             'orders' => $orders
@@ -194,14 +199,19 @@ class DriverController extends Controller
         $driverId = $user->driver->id;
 
         $orders = Order::where('driver_id', $driverId)
-            ->whereIn('status', ['preparing', 'on_delivery'])
+            ->whereIn('status', ['preparing', 'on_delivery', 'pending'])
             ->with([
                 'user',
                 'restaurant',
                 'orderItems.meal'
             ])
             ->orderByDesc('updated_at')
-            ->get();
+            ->get()->map(function ($order) {
+                if ($order->barcode) {
+                    $order->barcode = asset('storage/' . $order->barcode);
+                }
+                return $order;
+            });
 
         return response()->json([
             'orders' => $orders
@@ -213,23 +223,25 @@ class DriverController extends Controller
         $user = Auth::user();
 
         $order = Order::where('id', $order_id)
-            ->with([
-                'user',
-                'restaurant.user',
-                'orderItems.meal'
-            ])
+            ->with(['user', 'restaurant.user', 'orderItems.meal'])
             ->first();
 
-        if (! $order) {
+        if (!$order) {
             return response()->json(['message' => 'الطلب غير موجود'], 404);
         }
+
+        if ($order->barcode) {
+            $order->barcode = asset('storage/' . $order->barcode);
+        }
+
         $mealsCount = $order->orderItems->sum('quantity');
 
         return response()->json([
             'mealcount' => $mealsCount,
-            'order' => $order,
+            'order'     => $order,
         ], 200);
     }
+
 
     public function updateAvailabilityToFalse()
     {
@@ -329,5 +341,122 @@ class DriverController extends Controller
                 'message' => 'حدث خطأ غير متوقع أثناء تغيير الحالة.',
             ], 500);
         }
+    }
+
+    public function scanOrderByDriver($orderId)
+    {
+        $driver = Driver::where('user_id', auth()->id())->first();
+
+        if (!$driver) {
+            return response()->json(['message' => 'لم يتم العثور على سائق مرتبط بهذا المستخدم.'], 404);
+        }
+
+        $order = Order::find($orderId);
+
+        if (!$order) {
+            return response()->json(['message' => 'الطلب غير موجود.'], 404);
+        }
+
+        if ($order->driver_id !== $driver->id) {
+            return response()->json(['message' => 'أنت لست السائق الموكل بهذا الطلب.'], 403);
+        }
+
+        if ($order->status !== 'preparing') {
+            return response()->json(['message' => 'لا يمكن مسح الطلب في حالته الحالية.'], 400);
+        }
+
+        $order->update([
+            'status' => 'on_delivery',
+        ]);
+
+        $customer = $order->user;
+
+        if ($customer && $customer->fcm_token) {
+            $title = 'طلبك في الطريق إليك';
+            $body  = "السائق الآن يحمل طلبك رقم #{$order->id} وسيصل قريبًا.";
+            $data  = ['type' => 'order_on_delivery', 'order_id' => $order->id];
+
+            // 1) إرسال إشعار FCM
+            app(\App\Services\FirebaseNotificationService::class)
+                ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
+
+            // 2) تخزين الإشعار في جدول notifications
+            \App\Models\Notification::create([
+                'user_id' => $customer->id,
+                'title'   => $title,
+                'body'    => $body,
+                'data'    => $data,
+            ]);
+        }
+
+        return response()->json(['message' => '✅ تم تحويل حالة الطلب إلى on_delivery.'], 200);
+    }
+
+    public function myProfile()
+    {
+        $user   = auth()->user();
+        $driver = $user->driver;
+
+        if (!$driver) {
+            return response()->json(['message' => 'لا يوجد سجل سائق مرتبط بهذا المستخدم.'], 404);
+        }
+
+        $myTurn = $driver->areaTurns;
+
+        if (!$myTurn) {
+            return response()->json(['message' => 'السائق غير مُدرَج في جدول الدور.'], 404);
+        }
+
+        $activeTurns = DriverAreaTurn::where('area_id', $myTurn->area_id)
+            ->where('is_active', true)
+            ->orderBy('turn_order')
+            ->get();
+
+        $currentPointer = $activeTurns->firstWhere('is_next', true) ?? $activeTurns->first();
+
+        $aheadCount = 0;
+
+        foreach ($activeTurns as $turn) {
+
+            if ($turn->id === $myTurn->id) {
+                continue;
+            }
+
+            if ($currentPointer->turn_order <= $myTurn->turn_order) {
+                if (
+                    $turn->turn_order >= $currentPointer->turn_order &&
+                    $turn->turn_order <  $myTurn->turn_order
+                ) {
+                    $aheadCount++;
+                }
+            } else {
+                if (
+                    $turn->turn_order >= $currentPointer->turn_order ||
+                    $turn->turn_order <  $myTurn->turn_order
+                ) {
+                    $aheadCount++;
+                }
+            }
+        }
+
+        return response()->json([
+            'user'  => [
+                'id'       => $user->id,
+                'fullname' => $user->fullname,
+                'phone'    => $user->phone,
+            ],
+            'driver' => [
+                'id'            => $driver->id,
+                'vehicle_type'  => $driver->vehicle_type,
+                'vehicle_number' => $driver->vehicle_number,
+            ],
+            'turn'  => [
+                'area_id'     => $myTurn->area_id,
+                'turn_order'  => $myTurn->turn_order,
+                'is_active'   => (bool) $myTurn->is_active,
+                'is_next'     => (bool) $myTurn->is_next,
+                'drivers_ahead' => $aheadCount,
+            ],
+        ]);
     }
 }

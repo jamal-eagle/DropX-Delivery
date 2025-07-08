@@ -9,6 +9,7 @@
         "bacon/bacon-qr-code": "^2.0",
         "endroid/qr-code": "^5.0",
         "guzzlehttp/guzzle": "^7.2",
+        "kreait/firebase-php": "^7.19",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.3",
         "laravel/tinker": "^2.8",
