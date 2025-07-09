@@ -238,7 +238,7 @@ class ResturantController extends Controller
 
                 $this->rotateDriverTurn($availableDriver);
 
-                $customer = $order->user;                     // صاحب الطلب
+                $customer = $order->user;
                 if ($customer && $customer->fcm_token) {
                     $title = 'تم قبول طلبك';
                     $body  = "المطعم {$restaurant->user->fullname} بدأ تجهيز طلبك رقم #{$order->id}.";
@@ -247,7 +247,6 @@ class ResturantController extends Controller
                     app(FirebaseNotificationService::class)
                         ->sendToToken($customer->fcm_token, $title, $body, $data, $customer->id);
 
-                    // تخزين الإشعار في قاعدة البيانات
                     Notification::create([
                         'user_id' => $customer->id,
                         'title'   => $title,
@@ -262,9 +261,6 @@ class ResturantController extends Controller
                     $body  = "لديك طلب رقم #{$order->id} للتوصيل. اضغط لعرض التفاصيل.";
                     $data  = ['type' => 'new_delivery', 'order_id' => $order->id];
 
-                    app(FirebaseNotificationService::class)
-                        ->sendToToken($driverUser->fcm_token, $title, $body, $data, $driverUser->id);
-
                     Notification::create([
                         'user_id' => $driverUser->id,
                         'title'   => $title,
@@ -272,6 +268,11 @@ class ResturantController extends Controller
                         'data'    => $data,
                     ]);
                 }
+
+                app(FirebaseNotificationService::class)
+                    ->sendToToken($driverUser->fcm_token, $title, $body, $data, $driverUser->id);
+
+
 
                 Cache::forget("pending_orders_restaurant_{$restaurant->id}");
                 Cache::forget("preparing_orders_restaurant_{$restaurant->id}");

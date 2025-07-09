@@ -19,6 +19,12 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
 
+    const OTP_TTL_MINUTES         = 5;
+    const OTP_ATTEMPT_TTL_MINUTES = 10;
+    const OTP_RESEND_TTL_MINUTES  = 15;
+    const MAX_OTP_ATTEMPTS        = 3;
+    const MAX_OTP_RESEND          = 3;
+
     protected function formatPhoneNumberToE164($localPhone)
     {
         $localPhone = preg_replace('/\D/', '', $localPhone);
@@ -55,36 +61,46 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         return DB::transaction(function () use ($request) {
-            $normalizedPhone = $this->normalizePhoneForStorage($request->phone);
+
+            $phone = $this->normalizePhoneForStorage($request->phone);
 
             $user = User::create([
                 'fullname'    => $request->fullname,
-                'phone'       => $normalizedPhone,
+                'phone'       => $phone,
                 'password'    => Hash::make($request->password),
                 'is_verified' => false,
-                'fcm_token' => $request->fcm_token,
+                'fcm_token'   => $request->fcm_token,
             ]);
 
             $area = Area::firstOrCreate(
                 ['city' => $request->city],
                 ['neighborhood' => $request->neighborhood]
             );
-
             $user->areas()->attach($area->id);
 
-            $formattedPhone = $this->formatPhoneNumberToE164($user->phone);
-            $otp = rand(100000, 999999);
-            Cache::put("otp_{$user->phone}", $otp, now()->addMinutes(5));
+            $otpKey      = "otp_{$phone}";
+            $attemptKey  = "otp_attempts_{$phone}";
+            $resendKey   = "otp_resend_{$phone}";
 
-            $sent = (new OTPSMSService())->send($formattedPhone, $otp);
+            Cache::forget($otpKey);
+            Cache::forget($attemptKey);
+            Cache::put($resendKey, 1, now()->addMinutes(self::OTP_RESEND_TTL_MINUTES));
+
+            $otp = rand(100000, 999999);
+            Cache::put($otpKey, $otp, now()->addMinutes(self::OTP_TTL_MINUTES));
+
+            $sent = (new OTPSMSService())->send(
+                $this->formatPhoneNumberToE164($phone),
+                $otp
+            );
+
             if (! $sent) {
-                throw new \Exception("فشل في إرسال كود التحقق");
+                throw new \Exception('فشل في إرسال كود التحقق');
             }
 
-            // ✅ الاستجابة
             return response()->json([
                 'message' => 'تم إنشاء الحساب. الرجاء إدخال رمز التحقق المرسل إلى هاتفك.',
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ], 201);
         });
     }
@@ -93,43 +109,56 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone' => 'required|string',
-            'otp' => 'required|numeric',
+            'otp'   => 'required|numeric',
         ]);
 
-        $phone = $request->phone;
+        $phone      = $this->normalizePhoneForStorage($request->phone);
+        $otpKey     = "otp_{$phone}";
         $attemptKey = "otp_attempts_{$phone}";
-        $attempts = Cache::get($attemptKey, 0);
+        $resendKey  = "otp_resend_{$phone}";
 
-        if ($attempts >= 3) {
-            return response()->json(['message' => 'تم تجاوز عدد المحاولات المسموح بها'], 403);
+        $attempts = Cache::get($attemptKey, 0);
+        if ($attempts >= self::MAX_OTP_ATTEMPTS) {
+            return response()->json([
+                'message' => 'تم تجاوز عدد المحاولات المسموح بها، الرجاء المحاولة بعد قليل.'
+            ], 403);
         }
 
-        $cachedOTP = Cache::get("otp_{$phone}");
+        $cachedOTP = Cache::get($otpKey);
+        if (! $cachedOTP) {
+            return response()->json([
+                'message' => 'انتهت صلاحية الرمز، اطلب رمزًا جديدًا.'
+            ], 400);
+        }
 
-        if ($cachedOTP && $cachedOTP == $request->otp) {
+        if ($cachedOTP == $request->otp) {
             $user = User::where('phone', $phone)->first();
-
-            if (!$user) {
+            if (! $user) {
                 return response()->json(['message' => 'المستخدم غير موجود'], 404);
             }
 
             $user->update(['is_verified' => true]);
-            Cache::forget("otp_{$phone}");
+
+            Cache::forget($otpKey);
             Cache::forget($attemptKey);
+            Cache::forget($resendKey);
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
                 'message' => 'تم التحقق من الحساب بنجاح',
-                'token' => $token,
-                'user' => $user
-            ]);
+                'token'   => $token,
+                'user'    => $user,
+            ], 200);
         }
 
-        // زيادة المحاولة إذا كانت خاطئة
-        Cache::put($attemptKey, $attempts + 1, now()->addMinutes(10));
+        Cache::put($attemptKey, $attempts + 1, now()->addMinutes(self::OTP_ATTEMPT_TTL_MINUTES));
 
-        return response()->json(['message' => 'رمز غير صحيح. تبقّى ' . (2 - $attempts) . ' محاولات.'], 401);
+        return response()->json([
+            'message' => 'رمز غير صحيح. تبقّى ' .
+                max(0, self::MAX_OTP_ATTEMPTS - ($attempts + 1)) .
+                ' محاولات.'
+        ], 401);
     }
 
     public function resendOtp(Request $request)
@@ -138,42 +167,50 @@ class AuthController extends Controller
             'phone' => 'required|string|exists:users,phone',
         ]);
 
-        $phone = $this->normalizePhoneForStorage($request->phone);
-
-        $user = User::where('phone', $phone)->first();
+        $phone  = $this->normalizePhoneForStorage($request->phone);
+        $user   = User::where('phone', $phone)->first();
 
         if ($user->is_verified) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'تم التحقق من الحساب مسبقاً.',
             ], 400);
         }
 
-        if (Cache::has("otp_{$user->phone}")) {
+        $otpKey    = "otp_{$phone}";
+        $resendKey = "otp_resend_{$phone}";
+
+        $resendCount = Cache::get($resendKey, 0);
+        if ($resendCount >= self::MAX_OTP_RESEND) {
             return response()->json([
-                'status' => true,
-                'message' => 'تم إرسال كود تحقق مسبقًا، الرجاء التحقق من رسائلك.',
-            ]);
+                'status'  => false,
+                'message' => 'لقد تجاوزت الحد الأقصى لطلبات الكود، الرجاء المحاولة لاحقًا.',
+            ], 429);
         }
 
+        // توليد كود جديد
+        Cache::forget($otpKey);
         $otp = rand(100000, 999999);
-        Cache::put("otp_{$user->phone}", $otp, now()->addMinutes(5));
+        Cache::put($otpKey, $otp, now()->addMinutes(self::OTP_TTL_MINUTES));
 
-        $formattedPhone = $this->formatPhoneNumberToE164($user->phone);
-
-        $sent = (new OTPSMSService())->send($formattedPhone, $otp);
+        $sent = (new OTPSMSService())->send(
+            $this->formatPhoneNumberToE164($phone),
+            $otp
+        );
 
         if (! $sent) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'فشل في إرسال كود التحقق.',
             ], 500);
         }
 
+        Cache::put($resendKey, $resendCount + 1, now()->addMinutes(self::OTP_RESEND_TTL_MINUTES));
+
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'تم إرسال كود التحقق بنجاح.',
-        ]);
+        ], 200);
     }
 
 

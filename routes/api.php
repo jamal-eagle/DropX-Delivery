@@ -17,6 +17,7 @@ use App\Http\Controllers\meal\MealController;
 use App\Http\Controllers\meal\SearchController;
 use App\Http\Controllers\order\OrderController;
 use App\Http\Controllers\Admin\RestaurantCommissionController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\resturant\ResturantController;
 use App\Http\Middleware\CheckResturant;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOTP']);
+Route::post('resend-otp', [AuthController::class, 'resendOtp']);
 
 Route::get('/get-Area', [AuthController::class, 'index']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -56,7 +58,7 @@ Route::prefix('user')->middleware(['auth:sanctum', \App\Http\Middleware\CheckCus
     Route::get('/getMealsByCity/{city}', [OrderController::class, 'getMealsByCity']);
     Route::get('/getAllMealsOnMyAppletion', [OrderController::class, 'getAllMeals']);
     Route::put('scanOrderBarcodeByUser/{order_id}', [OrderController::class, 'scanOrderBarcodeByUser']);
-    Route::post('auth/resend-otp', [AuthController::class, 'resendOtp']);
+    Route::get('/getnotfication', [NotificationController::class, 'getCustomerNotifications']);
 });
 
 Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])->group(function () {
@@ -72,6 +74,7 @@ Route::prefix('resturant')->middleware(['auth:sanctum', CheckResturant::class])-
     Route::put('/updateMealStatusWithPrice/{mealId}', [ResturantController::class, 'updateMealStatusAndPrice']);
     Route::get('/getProfileResturant', [ResturantController::class, 'getResturantProfile']);
     Route::get('/getResturantArchiveOrder', [ResturantController::class, 'getRestaurantArchiveOrders']);
+    Route::get('/getresturantnotfication', [NotificationController::class, 'getresturantNotifications']);
 });
 
 Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckDriver::class])->group(function () {
@@ -79,13 +82,12 @@ Route::prefix('driver')->middleware(['auth:sanctum', \App\Http\Middleware\CheckD
     Route::get('desplayAvailableOrder/ondelivery', [DriverController::class, 'availableOrdersOnDelivery']);
     Route::get('orders/completed', [DriverController::class, 'completedOrders']);
     Route::get('orders/Notcompleted', [DriverController::class, 'orderforrdivernotcomplete']);
-    // Route::put('orders/acceptOrder/{order_id}', [DriverController::class, 'acceptOrder']);
-    // Route::post('orders/rejectOrder/{order_id}', [DriverController::class, 'rejectOrder']);
     Route::get('orders/getOrderDetails/{order_id}', [DriverController::class, 'getOrderDetails']);
     Route::put('updateAvailabilityTofalse', [DriverController::class, 'updateAvailabilityToFalse']);
     Route::put('updateAvailabilityTotrue', [DriverController::class, 'updateAvailabilityToTrue']);
     Route::put('scanOrderBarcodeByDriver/{order_id}', [DriverController::class, 'scanOrderByDriver']);
     Route::get('myProfile', [DriverController::class, 'myProfile']);
+    Route::get('/getdrivernotfication', [NotificationController::class, 'getdriverNotifications']);
 });
 
 Route::post('/adminlogin', [AuthAdminController::class, 'login']);
@@ -132,7 +134,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::get('/resturant/getDeliveredOrdersForRestaurantByMonth/{resturant_id}/{year}/{month}', [AdminResturantController::class, 'getDeliveredOrdersForRestaurantByMonth']);
     Route::get('/resturant/getRestaurantDailyReport/{resturant_id}/{year}/{month}/{day}', [AdminResturantController::class, 'getRestaurantDailyReport']);
     Route::get('/resturant/getRestaurantMonthlyReport/{resturant_id}/{year}/{month}', [AdminResturantController::class, 'getRestaurantMonthlyReport']);
-    Route::get('/resturant/getRestaurantOrdersByStatus/{resturant_Id}', [AdminResturantController::class, 'getRestaurantOrdersByStatus']);
+    Route::post('/resturant/getRestaurantOrdersByStatus/{resturant_Id}', [AdminResturantController::class, 'getRestaurantOrdersByStatus']);
     Route::post('/restaurant/addcommission/{restaurant_id}', [RestaurantCommissionController::class, 'setRestaurantCommission']);
     Route::post('/restaurant/updatecommission/{restaurant_id}', [RestaurantCommissionController::class, 'updateCommission']);
     Route::post('/meal/AddMeal/{resturant_id}', [AdminMealController::class, 'storeMeal']);
