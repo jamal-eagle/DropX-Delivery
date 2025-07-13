@@ -13,12 +13,13 @@ class OTPSMSService
         $url = "https://app.hypersender.com/api/sms/v1/{$instanceId}/send-message";
 
         $response = Http::withOptions([
-            'verify' => false,
+            // 'verify' => false,
         ])
             ->withToken(config('services.hypersender_sms.token'))
             ->post($url, [
                 'to' => $phoneNumber,
-                'content' => "رمز التحقق الخاص بهذا الرقم هو: $otp",
+                'content' => "رمز التحقق الخاص بك هو: $otp
+يرجى عدم مشاركته مع أي شخص.",
             ]);
 
         Log::info('Hypersender Final Response', [

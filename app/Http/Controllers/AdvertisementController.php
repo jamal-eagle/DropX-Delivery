@@ -77,4 +77,11 @@ class AdvertisementController extends Controller
             'ad' => $ad
         ], 200);
     }
+
+    public function deleteads($ads_id)
+    {
+        $ads = Advertisement::find($ads_id);
+        $ads->delete();
+        return response()->json("تم حذف الاعلان بنجاح ");
+    }
 }

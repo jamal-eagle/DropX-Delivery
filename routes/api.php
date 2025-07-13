@@ -98,6 +98,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(fun
     Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);
     Route::post('/ads/store-ads', [AdvertisementController::class, 'storeAds']);
     Route::post('/ads/update-ads/{id}', [AdvertisementController::class, 'update_Ads']);
+    Route::delete('/ads/delete-ads/{id}', [AdvertisementController::class, 'deleteads']);
+
 
     Route::get('/getPromoCode', [PromoCodeController::class, 'index']);
     Route::post('/AddPromoCode', [PromoCodeController::class, 'store']);
