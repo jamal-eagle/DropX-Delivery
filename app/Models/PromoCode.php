@@ -30,7 +30,7 @@ class PromoCode extends Model
 
     public function orders()
     {
-        return $this->belongsToMany(PromoCode::class, 'user_promo_codes')
+        return $this->belongsToMany(Order::class, 'user_promo_codes')
             ->withTimestamps();
     }
 }

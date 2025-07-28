@@ -32,7 +32,7 @@ class Driver extends Model
 
     public function areaTurns()
     {
-        return $this->hasOne(DriverAreaTurn::class);
+        return $this->hasMany(DriverAreaTurn::class);
     }
 
     public function workingHours()

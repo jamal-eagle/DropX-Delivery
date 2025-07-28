@@ -78,4 +78,27 @@ class AuthAdminController extends Controller
             'data' => $customers,
         ]);
     }
+
+    public function adminProfile(Request $request)
+    {
+        $admin = $request->user();
+
+        if (!$admin || $admin->user_type !== 'admin') {
+            return response()->json([
+                'status' => false,
+                'message' => 'غير مصرح',
+            ], 403);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'معلومات الأدمن',
+            'data' => [
+                'id'       => $admin->id,
+                'fullname' => $admin->fullname,
+                'phone'    => $admin->phone,
+                'created_at' => $admin->created_at,
+            ],
+        ]);
+    }
 }
