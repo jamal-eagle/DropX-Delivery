@@ -94,7 +94,7 @@ Route::post('/adminlogin', [AuthAdminController::class, 'login']);
 Route::post('/admin/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'checkUserType'])->group(function () {
-    Route::get('/adminProfile', [AuthAdminController::class, 'adminProfile']);
+    Route::get('/profile', [AuthAdminController::class, 'adminProfile']);
     Route::get('/getallcustomers', [AuthAdminController::class, 'getCustomers']);
     Route::post('/users/{userId}/updateuseractivation', [AuthAdminController::class, 'toggleActiveStatus']);
     Route::get('/all-ads', [AdvertisementController::class, 'get_all_ads']);

@@ -24,6 +24,8 @@ class AdminResturantController extends Controller
             'fullname'            => 'required|string|max:75',
             'phone'               => 'required|string|max:15|unique:users,phone',
             'password'            => 'required|string|min:6',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
             'city'                => 'required|string|max:100',
             'description'         => 'nullable|string',
             'working_hours_start' => 'nullable|date_format:H:i',
@@ -43,6 +45,8 @@ class AdminResturantController extends Controller
                 'phone'       => $request->phone,
                 'password'    => Hash::make($request->password),
                 'user_type'   => 'restaurant',
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
                 'is_active'   => true,
                 'is_verified' => true,
             ]);
